@@ -1,0 +1,80 @@
+/* KONE slide template styles. Slides are 1920×1080. */
+
+deck-stage > section.slide {
+  width: 1920px; height: 1080px;
+  position: relative; overflow: hidden;
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  padding: 96px 120px;
+  box-sizing: border-box;
+  background: #fff;
+}
+deck-stage > section.slide-title { background: var(--kone-blue); }
+deck-stage > section.slide-closing { background: var(--kone-ink); }
+
+.slide .eyebrow {
+  font-size: 22px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-weight: 600; color: var(--kone-blue);
+}
+.slide .eyebrow.on-blue { color: rgba(255,255,255,0.78); }
+.slide h1, .slide h2 { letter-spacing: -0.025em; font-weight: 700; }
+.slide h2 { font-size: 84px; line-height: 1.05; margin: 24px 0 0; }
+
+.page-foot {
+  position: absolute; left: 120px; right: 120px; bottom: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 22px; color: var(--fg-3);
+}
+.foot-logo { height: 36px; }
+
+/* ── 01 Title ── */
+.slide-title { background: var(--kone-blue); color: #fff; display: flex; flex-direction: column; justify-content: space-between; }
+.slide-title .brand-logo { height: 64px; }
+.slide-title .title-stack { display: flex; flex-direction: column; gap: 32px; max-width: 1500px; }
+.slide-title .title-display { font-size: 168px; line-height: 0.95; letter-spacing: -0.035em; font-weight: 700; color: #fff; margin: 0; }
+.slide-title .title-meta { font-size: 28px; color: rgba(255,255,255,0.78); margin-top: 16px; }
+.slide-title .block-pattern { position: absolute; right: -80px; bottom: -80px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; opacity: 0.16; }
+.slide-title .block-pattern > div { width: 280px; height: 280px; background: #fff; }
+
+/* ── 02 Section ── */
+.slide-section { background: #fff; display: flex; flex-direction: column; justify-content: center; }
+.slide-section .section-num { position: absolute; top: 96px; right: 120px; font-size: 240px; line-height: 1; font-weight: 700; color: var(--kone-blue-20); letter-spacing: -0.04em; }
+.slide-section .section-stack { display: flex; flex-direction: column; gap: 32px; max-width: 1400px; z-index: 1; }
+.slide-section .section-title { font-size: 128px; line-height: 1.0; letter-spacing: -0.03em; font-weight: 700; color: var(--kone-ink); margin: 0; }
+.slide-section .bottom-rule { position: absolute; left: 120px; right: 120px; bottom: 96px; height: 12px; background: var(--kone-blue); }
+
+/* ── 03 Quote ── */
+.slide-quote { background: var(--bg-soft); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+.slide-quote .quote-mark { font-family: var(--font-display); font-size: 360px; line-height: 0.7; color: var(--kone-blue); font-weight: 700; }
+.slide-quote .big-quote { font-size: 88px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 600; color: var(--kone-ink); margin: 24px 0 64px; max-width: 1500px; }
+.slide-quote .quote-cite { font-size: 28px; line-height: 1.5; margin: 0; }
+.slide-quote .quote-cite strong { color: var(--kone-ink); font-weight: 700; font-size: 32px; }
+.slide-quote .quote-cite span { color: var(--fg-3); }
+
+/* ── 04 Stats ── */
+.slide-stats .slide-head { margin-bottom: 96px; display: flex; flex-direction: column; gap: 16px; }
+.slide-stats .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 48px; }
+.slide-stats .stat { padding-top: 32px; border-top: 6px solid var(--kone-blue); margin: 0; }
+.slide-stats .stat-num { display: inline-block; font-size: 144px; line-height: 1; letter-spacing: -0.04em; font-weight: 700; color: var(--kone-blue); margin-bottom: 24px; }
+.slide-stats .stat-lbl { display: inline-block; font-size: 24px; line-height: 1.4; color: var(--fg-2); max-width: 22ch; }
+
+/* ── 05 Comparison ── */
+.slide-compare .slide-head { margin-bottom: 80px; display: flex; flex-direction: column; gap: 16px; }
+.slide-compare .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.slide-compare .compare-col { padding: 56px; min-height: 600px; }
+.slide-compare .compare-col.legacy { background: var(--bg-soft); border: 1px solid var(--border); }
+.slide-compare .compare-col.dx { background: var(--kone-blue); color: #fff; }
+.slide-compare .col-label { font-size: 24px; font-weight: 600; color: var(--fg-2); margin-bottom: 32px; letter-spacing: 0.04em; }
+.slide-compare .col-label.on-blue { color: rgba(255,255,255,0.85); }
+.slide-compare ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; }
+.slide-compare li { font-size: 32px; line-height: 1.35; padding-left: 36px; position: relative; }
+.slide-compare li::before { content:""; position: absolute; left: 0; top: 14px; width: 18px; height: 4px; background: var(--fg-3); }
+.slide-compare .compare-col.dx li { color: #fff; }
+.slide-compare .compare-col.dx li::before { background: #fff; }
+
+/* ── 06 Closing ── */
+.slide-closing { background: var(--kone-ink); color: #fff; display: flex; flex-direction: column; justify-content: space-between; }
+.slide-closing .closing-stack { display: flex; flex-direction: column; gap: 32px; }
+.slide-closing .title-display { font-size: 168px; line-height: 0.95; letter-spacing: -0.035em; font-weight: 700; color: #fff; margin: 0; }
+.slide-closing .closing-meta { font-family: var(--font-mono); font-size: 28px; color: rgba(255,255,255,0.6); margin-top: 32px; }
+.slide-closing .closing-logo { height: 80px; align-self: flex-end; }

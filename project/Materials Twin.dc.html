@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/kone-design-system-bf9595d9-cc6a-40f6-8d58-3b783613dd38/colors_and_type.css">
+<link rel="stylesheet" href="_ds/kone-design-system-bf9595d9-cc6a-40f6-8d58-3b783613dd38/styles.css">
+<script src="_ds/kone-design-system-bf9595d9-cc6a-40f6-8d58-3b783613dd38/_ds_bundle.js"></script>
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<style>
+body{margin:0;background:#141414;overflow:auto}
+a{color:#1450F5;text-decoration:none}
+a:hover{color:#0E3DC4;text-decoration:underline}
+input[type=range]{accent-color:#1450F5}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="height:100vh;min-height:720px;min-width:1100px;display:flex;flex-direction:column;font-family:var(--font-sans);color:#141414;background:#141414">
+
+<header style="height:56px;flex:none;display:flex;align-items:center;gap:20px;padding:0 20px;background:#FFFFFF;border-bottom:1px solid #DEE0E4">
+  <div style="display:flex;align-items:center;gap:14px;flex:none">
+    <img src="assets/kone-logo-primary.png" alt="KONE" style="height:20px;display:block">
+    <div style="width:1px;height:24px;background:#DEE0E4"></div>
+    <div style="font-family:var(--font-secondary);font-size:13px;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap">KTEC Materials Twin</div>
+  </div>
+  <nav style="display:flex;gap:2px;align-self:stretch;align-items:stretch">
+    <sc-for list="{{ modules }}" as="m" hint-placeholder-count="8">
+      <button onClick="{{ m.go }}" style="border:0;background:none;padding:0 10px;font-size:13px;cursor:pointer;white-space:nowrap;color:{{ m.color }};font-weight:{{ m.weight }};box-shadow:inset 0 -2px 0 {{ m.bar }}">{{ m.label }}</button>
+    </sc-for>
+  </nav>
+  <div style="flex:1"></div>
+  <button onClick="{{ openPalette }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:280px;height:36px;padding:0 8px 0 12px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;color:#767A82;font-size:13px;cursor:text">
+    <span style="white-space:nowrap">Search part, serial, PO, AWB, project</span>
+    <span style="font-size:11px;padding:2px 6px;background:#EFF1F4;color:#4A4D55;border-radius:2px">Ctrl K</span>
+  </button>
+  <div style="display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid #DEE0E4;border-radius:4px;font-size:13px;white-space:nowrap">
+    <span style="color:#767A82">Role</span><span style="font-weight:600">Logistics coordinator</span>
+  </div>
+  <div style="position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #DEE0E4;border-radius:4px;font-size:12px;font-weight:600">7<span style="position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:#C8312B"></span></div>
+  <div style="width:36px;height:36px;border-radius:50%;background:#1450F5;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:none">RV</div>
+</header>
+
+<main style="position:relative;flex:1;min-height:0;overflow:hidden">
+
+<sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+  <div style="position:absolute;inset:0">{{ scene }}</div>
+
+  <div style="position:absolute;top:16px;left:288px;right:412px;display:flex">
+    <div style="display:flex;align-items:center;gap:2px;height:36px;padding:0 6px;background:#FFFFFF;border:1px solid #DEE0E4;box-shadow:var(--shadow-2);overflow:hidden">
+      <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:2px">
+          <span style="color:#C4C7CD;font-size:13px;display:{{ c.sepDisplay }}">›</span>
+          <button onClick="{{ c.go }}" style="border:0;background:none;padding:4px 6px;font-size:13px;cursor:pointer;white-space:nowrap;color:{{ c.color }};font-weight:{{ c.weight }}">{{ c.label }}</button>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <aside style="position:absolute;top:16px;left:16px;bottom:96px;width:256px;background:#FFFFFF;border:1px solid #DEE0E4;box-shadow:var(--shadow-3);display:flex;flex-direction:column;overflow:auto">
+    <div style="padding:16px 20px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Layers</div>
+    <sc-for list="{{ layers }}" as="l" hint-placeholder-count="5">
+      <button onClick="{{ l.toggle }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:9px 20px;border:0;background:none;font-size:13px;color:#141414;cursor:pointer;text-align:left">
+        <span>{{ l.label }}</span>
+        <span style="position:relative;flex:none;width:30px;height:16px;border-radius:999px;background:{{ l.track }};transition:background .15s">
+          <span style="position:absolute;top:2px;left:{{ l.knob }};width:12px;height:12px;border-radius:50%;background:#FFFFFF;transition:left .15s"></span>
+        </span>
+      </button>
+    </sc-for>
+    <sc-if value="{{ scr.store }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 20px 8px;border-top:1px solid #DEE0E4;margin-top:8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Colour by</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:0 20px">
+        <sc-for list="{{ colorModes }}" as="cm" hint-placeholder-count="4">
+          <button onClick="{{ cm.go }}" style="height:30px;border-radius:4px;font-size:12px;cursor:pointer;border:1px solid {{ cm.border }};background:{{ cm.bg }};color:{{ cm.color }}">{{ cm.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:14px 20px 4px">
+        <sc-for list="{{ legend }}" as="lg" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#4A4D55">
+            <span style="width:14px;height:14px;flex:none;background:{{ lg.color }};border:1px solid rgba(0,0,0,.12)"></span>{{ lg.label }}
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#4A4D55">
+          <span style="width:14px;height:14px;flex:none;border:1.5px dashed #1450F5;background:#EFF1F4"></span>Planned inbound (ghost)
+        </div>
+      </div>
+    </sc-if>
+    <div style="padding:16px 20px 8px;border-top:1px solid #DEE0E4;margin-top:8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Filters</div>
+    <div style="display:flex;flex-direction:column;gap:6px;padding:0 20px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border:1px solid #C4C7CD;border-radius:4px;font-size:12px"><span style="color:#767A82">Project</span><span style="font-weight:600">All projects</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border:1px solid #C4C7CD;border-radius:4px;font-size:12px"><span style="color:#767A82">Hazard class</span><span style="font-weight:600">Any</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;height:32px;padding:0 10px;border:1px solid #C4C7CD;border-radius:4px;font-size:12px"><span style="color:#767A82">Owner</span><span style="font-weight:600">Anyone</span></div>
+    </div>
+  </aside>
+
+  <div style="position:absolute;right:412px;bottom:96px;display:flex;flex-direction:column;gap:4px">
+    <button style="width:36px;height:36px;border:1px solid #DEE0E4;background:#FFFFFF;font-size:18px;cursor:pointer">+</button>
+    <button style="width:36px;height:36px;border:1px solid #DEE0E4;background:#FFFFFF;font-size:18px;cursor:pointer">−</button>
+    <button style="width:36px;height:36px;border:1px solid #DEE0E4;background:#FFFFFF;font-size:11px;font-weight:600;cursor:pointer">3D</button>
+    <button style="width:36px;height:36px;border:1px solid #DEE0E4;background:#FFFFFF;font-size:11px;font-weight:600;cursor:pointer">2D</button>
+  </div>
+
+  <aside style="position:absolute;top:16px;right:16px;bottom:96px;width:380px;background:#FFFFFF;border:1px solid #DEE0E4;box-shadow:var(--shadow-3);overflow:auto">
+
+    <sc-if value="{{ scr.network }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:20px 24px;border-bottom:1px solid #DEE0E4">
+        <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Site · selected</div>
+        <div style="font-size:22px;font-weight:600;letter-spacing:-.01em;margin-top:6px">KTEC Chennai</div>
+        <div style="font-size:13px;color:#4A4D55;margin-top:2px">Technology and engineering centre · IST (UTC+5:30)</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#DEE0E4;border-bottom:1px solid #DEE0E4">
+        <div style="background:#FFFFFF;padding:14px 24px"><div style="font-size:12px;color:#767A82">Stock value</div><div style="font-size:22px;font-weight:600">€18.4M</div></div>
+        <div style="background:#FFFFFF;padding:14px 24px"><div style="font-size:12px;color:#767A82">Space used</div><div style="font-size:22px;font-weight:600">78%</div></div>
+        <div style="background:#FFFFFF;padding:14px 24px"><div style="font-size:12px;color:#767A82">Open shipments</div><div style="font-size:22px;font-weight:600">37</div></div>
+        <div style="background:#FFFFFF;padding:14px 24px"><div style="font-size:12px;color:#767A82">Alerts</div><div style="font-size:22px;font-weight:600;color:#C8312B">4</div></div>
+      </div>
+      <div style="padding:20px 24px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#141414">Alerts at this site</div>
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;gap:12px;padding:10px 24px;border-top:1px solid #EFF1F4"><span style="width:8px;height:8px;border-radius:50%;background:#C8312B;margin-top:6px;flex:none"></span><div><div style="font-size:13px;font-weight:600">Hazmat store temperature 31 °C</div><div style="font-size:12px;color:#767A82">Limit 25 °C · Building B2 · 12 min ago</div></div></div>
+        <div style="display:flex;gap:12px;padding:10px 24px;border-top:1px solid #EFF1F4"><span style="width:8px;height:8px;border-radius:50%;background:#C8312B;margin-top:6px;flex:none"></span><div><div style="font-size:13px;font-weight:600">Cycle count variance, bin C-10-04</div><div style="font-size:12px;color:#767A82">System 40 · scanned 36 · Electronics store</div></div></div>
+        <div style="display:flex;gap:12px;padding:10px 24px;border-top:1px solid #EFF1F4"><span style="width:8px;height:8px;border-radius:50%;background:#C77700;margin-top:6px;flex:none"></span><div><div style="font-size:13px;font-weight:600">Inbound pressure on staging, 21 Oct</div><div style="font-size:12px;color:#767A82">5 pallets planned · 2 slots free</div></div></div>
+        <div style="display:flex;gap:12px;padding:10px 24px;border-top:1px solid #EFF1F4"><span style="width:8px;height:8px;border-radius:50%;background:#C77700;margin-top:6px;flex:none"></span><div><div style="font-size:13px;font-weight:600">Shipment held in customs, Frankfurt</div><div style="font-size:12px;color:#767A82">AWB 7834 5521 0093 · DX Class 2027</div></div></div>
+      </div>
+      <div style="display:flex;gap:8px;padding:20px 24px;border-top:1px solid #DEE0E4">
+        <button onClick="{{ goSite }}" style="flex:1;height:40px;border:0;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:14px;font-weight:600;cursor:pointer">Enter site</button>
+        <button style="height:40px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:14px;cursor:pointer">Compare</button>
+        <button onClick="{{ goRoutes }}" style="height:40px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:14px;cursor:pointer">Plan route</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ scr.routes }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:20px 24px;border-bottom:1px solid #DEE0E4">
+        <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Route planner</div>
+        <div style="font-size:20px;font-weight:600;margin-top:6px">KTEC Chennai → Hyvinkää Test Tower</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+          <span style="font-size:12px;padding:3px 10px;border-radius:999px;background:#EFF1F4">6 pallets</span>
+          <span style="font-size:12px;padding:3px 10px;border-radius:999px;background:#EFF1F4">2.4 t</span>
+          <span style="font-size:12px;padding:3px 10px;border-radius:999px;background:#EFF1F4">8.6 m³</span>
+          <span style="font-size:12px;padding:3px 10px;border-radius:999px;background:#FFCDD7">Li-ion UN3480</span>
+          <span style="font-size:12px;padding:3px 10px;border-radius:999px;background:#EFF1F4">Need by 24 Oct</span>
+        </div>
+      </div>
+      <div style="padding:16px 24px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Best options · live traffic and weather</div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:0 24px">
+        <sc-for list="{{ routeOptions }}" as="r" hint-placeholder-count="4">
+          <button onClick="{{ r.go }}" style="display:flex;flex-direction:column;gap:8px;width:100%;padding:14px 16px;text-align:left;cursor:pointer;background:{{ r.bg }};border:1px solid {{ r.border }};box-shadow:{{ r.shadow }}">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%">
+              <span style="font-size:14px;font-weight:600;color:#141414">{{ r.mode }}</span>
+              <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:{{ r.tagBg }};color:#141414">{{ r.tag }}</span>
+            </div>
+            <span style="font-size:12px;color:#4A4D55">{{ r.carrier }}</span>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%">
+              <div><div style="font-size:11px;color:#767A82">ETA</div><div style="font-size:14px;font-weight:600;color:#141414">{{ r.eta }}</div></div>
+              <div><div style="font-size:11px;color:#767A82">Cost</div><div style="font-size:14px;font-weight:600;color:#141414">{{ r.cost }}</div></div>
+              <div><div style="font-size:11px;color:#767A82">CO₂e</div><div style="font-size:14px;font-weight:600;color:#141414">{{ r.co2 }}</div></div>
+            </div>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:8px;padding:20px 24px">
+        <button style="flex:1;height:40px;border:0;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:14px;font-weight:600;cursor:pointer">Book selected option</button>
+        <button style="height:40px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:14px;cursor:pointer">Split shipment</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ scr.site }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:20px 24px;border-bottom:1px solid #DEE0E4">
+        <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Building · floors peeled</div>
+        <div style="font-size:22px;font-weight:600;margin-top:6px">Building B2 · Stores</div>
+        <div style="font-size:13px;color:#4A4D55;margin-top:2px">KTEC Chennai · 3 floors · 4,120 m²</div>
+      </div>
+      <div style="padding:16px 24px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Floors</div>
+      <div style="display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid #EFF1F4"><div><div style="font-size:14px;font-weight:600">L2 · Lab stores</div><div style="font-size:12px;color:#767A82">Calibration, sensors, consumables</div></div><span style="font-size:13px;font-weight:600">61%</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:#D0DCFD"><div><div style="font-size:14px;font-weight:600">L1 · Electronics store</div><div style="font-size:12px;color:#2C2E33">ESD area, 4 rack rows, 192 bins</div></div><span style="font-size:13px;font-weight:600">84%</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:1px solid #EFF1F4"><div><div style="font-size:14px;font-weight:600">L0 · Receiving and heavy store</div><div style="font-size:12px;color:#767A82">Docks, staging, motors, rails</div></div><span style="font-size:13px;font-weight:600">72%</span></div>
+      </div>
+      <div style="padding:16px 24px 8px;border-top:1px solid #DEE0E4;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Space on L1 · next 4 weeks</div>
+      <div style="padding:0 24px 8px">
+        <div style="display:flex;height:12px;background:#EFF1F4">
+          <div style="width:64%;background:#1450F5"></div><div style="width:12%;background:#A1B9FB"></div><div style="width:8%;background:repeating-linear-gradient(45deg,#D0DCFD 0 4px,#FFFFFF 4px 8px)"></div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:#4A4D55"><span>Used 64%</span><span>Reserved 12%</span><span>Planned inbound 8%</span></div>
+      </div>
+      <div style="display:flex;gap:8px;padding:20px 24px">
+        <button onClick="{{ goStore }}" style="flex:1;height:40px;border:0;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:14px;font-weight:600;cursor:pointer">Enter electronics store</button>
+        <button style="height:40px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:14px;cursor:pointer">Split view</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ scr.store }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:20px 24px;border-bottom:1px solid #DEE0E4">
+        <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Bin D-05-04 · Electronics store</div>
+        <div style="display:flex;gap:16px;margin-top:12px">
+          <div style="width:88px;height:88px;flex:none;background:#F3EEEA;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:#767A82">Part image</div>
+          <div style="min-width:0">
+            <div style="font-size:18px;font-weight:600;line-height:1.25">Door operator actuator</div>
+            <div style="font-size:13px;color:#4A4D55;margin-top:2px">KM-DX-ACT-220 · rev C</div>
+            <div style="display:flex;gap:6px;margin-top:8px"><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:#D2F5FF">ESD</span><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:#EFF1F4">Prototype</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#DEE0E4;border-bottom:1px solid #DEE0E4">
+        <div style="background:#FFFFFF;padding:12px 24px"><div style="font-size:12px;color:#767A82">On hand</div><div style="font-size:20px;font-weight:600">12</div></div>
+        <div style="background:#FFFFFF;padding:12px 16px"><div style="font-size:12px;color:#767A82">Reserved</div><div style="font-size:20px;font-weight:600">4</div></div>
+        <div style="background:#FFFFFF;padding:12px 16px"><div style="font-size:12px;color:#767A82">Inbound</div><div style="font-size:20px;font-weight:600">+20</div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:16px 24px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#767A82">Owner project</span><span style="font-weight:600">DX Class 2027 prototype</span></div>
+        <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#767A82">Last movement</span><span>Put-away · 14 Oct · S. Iyer</span></div>
+        <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#767A82">Next event</span><span>Issue 4 to Lab L-03 · 20 Oct</span></div>
+        <div>
+          <div style="display:flex;justify-content:space-between;color:#767A82"><span>Volume used</span><span style="color:#141414">82%</span></div>
+          <div style="height:6px;background:#EFF1F4;margin-top:6px"><div style="width:82%;height:100%;background:#1450F5"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;color:#767A82"><span>Weight vs. load limit</span><span style="color:#141414">64% of 80 kg</span></div>
+          <div style="height:6px;background:#EFF1F4;margin-top:6px"><div style="width:64%;height:100%;background:#1450F5"></div></div>
+        </div>
+      </div>
+      <div style="padding:8px 24px 8px;border-top:1px solid #DEE0E4;padding-top:16px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Stock units</div>
+      <div style="display:flex;flex-direction:column;font-size:13px">
+        <div style="display:grid;grid-template-columns:1.3fr .5fr 1fr;gap:8px;padding:8px 24px;border-top:1px solid #EFF1F4"><span>Lot 26-0912-A</span><span>8</span><span style="color:#1B7F4E">Available</span></div>
+        <div style="display:grid;grid-template-columns:1.3fr .5fr 1fr;gap:8px;padding:8px 24px;border-top:1px solid #EFF1F4"><span>Lot 26-0912-B</span><span>4</span><span style="color:#1450F5">Reserved · DX27</span></div>
+        <div style="display:grid;grid-template-columns:1.3fr .5fr 1fr;gap:8px;padding:8px 24px;border-top:1px solid #EFF1F4"><span>PO 4500182</span><span>20</span><span style="color:#767A82">Planned · 21 Oct</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:16px 24px 24px;border-top:1px solid #DEE0E4">
+        <button style="height:36px;border:0;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">Pick</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Put-away</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Reserve</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Cycle count</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Relocate</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Print label</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ scr.shipments }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:20px 24px 16px;border-bottom:1px solid #DEE0E4">
+        <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Shipment tracker · all carriers</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+          <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#141414;color:#FFFFFF">All 142</span>
+          <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#EFF1F4">Inbound 88</span>
+          <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#EFF1F4">Outbound 54</span>
+          <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#FFCDD7">Exceptions 5</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ shipments }}" as="s" hint-placeholder-count="5">
+          <button onClick="{{ s.go }}" style="display:grid;grid-template-columns:1fr auto;gap:2px 12px;width:100%;padding:10px 24px;border:0;border-bottom:1px solid #EFF1F4;text-align:left;cursor:pointer;background:{{ s.bg }}">
+            <span style="font-size:13px;font-weight:600;color:#141414">{{ s.id }}</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#141414"><span style="width:7px;height:7px;border-radius:50%;background:{{ s.dot }}"></span>{{ s.status }}</span>
+            <span style="font-size:12px;color:#4A4D55">{{ s.route }}</span>
+            <span style="font-size:12px;color:#4A4D55">{{ s.eta }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="padding:16px 24px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Milestones · AWB 7834 5521 0093</div>
+      <div style="display:flex;flex-direction:column;padding:4px 24px 0">
+        <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#1450F5;margin-top:4px"></span><span style="flex:1;width:2px;background:#1450F5"></span></div><div style="padding-bottom:12px"><div style="font-size:13px;font-weight:600">Picked up · KTEC Chennai</div><div style="font-size:12px;color:#767A82">14 Oct, 16:20 · DHL Express</div></div></div>
+        <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#1450F5;margin-top:4px"></span><span style="flex:1;width:2px;background:#1450F5"></span></div><div style="padding-bottom:12px"><div style="font-size:13px;font-weight:600">Departed MAA</div><div style="font-size:12px;color:#767A82">15 Oct, 02:05</div></div></div>
+        <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#1450F5;margin-top:4px"></span><span style="flex:1;width:2px;background:#C8312B"></span></div><div style="padding-bottom:12px"><div style="font-size:13px;font-weight:600">Arrived Frankfurt hub</div><div style="font-size:12px;color:#767A82">16 Oct, 09:40</div></div></div>
+        <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#C8312B;margin-top:4px;box-shadow:0 0 0 4px #FFCDD7"></span><span style="flex:1;width:2px;background:#DEE0E4"></span></div><div style="padding-bottom:12px"><div style="font-size:13px;font-weight:600;color:#C8312B">Customs hold · battery documents</div><div style="font-size:12px;color:#767A82">17 Oct, 11:15 · delay risk high</div></div></div>
+        <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:10px;height:10px;border-radius:50%;border:2px solid #C4C7CD;box-sizing:border-box;margin-top:4px"></span></div><div style="padding-bottom:12px"><div style="font-size:13px;font-weight:600;color:#767A82">Delivered · Hyvinkää Test Tower</div><div style="font-size:12px;color:#767A82">ETA 21 Oct (was 19 Oct)</div></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 24px 24px">
+        <button style="height:36px;border:0;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">Notify receiver</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Open POD and docs</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Re-route</button>
+        <button style="height:36px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Raise claim</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ scr.movements }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:20px 24px;border-bottom:1px solid #DEE0E4">
+        <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Scrap case · awaiting approval</div>
+        <div style="font-size:20px;font-weight:600;margin-top:6px">SC-2026-0418</div>
+        <div style="font-size:13px;color:#4A4D55;margin-top:2px">6 × KM-SFT-BRK-090 safety brake · consumed in test campaign TC-114 drop test</div>
+      </div>
+      <div style="display:flex;padding:16px 24px 8px;gap:4px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="height:4px;background:#1450F5"></span><span style="font-size:11px;color:#4A4D55">Tag</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="height:4px;background:#1450F5"></span><span style="font-size:11px;color:#4A4D55">Reason</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="height:4px;background:#1450F5"></span><span style="font-size:11px;font-weight:600">Approval</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="height:4px;background:#DEE0E4"></span><span style="font-size:11px;color:#767A82">Move</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="height:4px;background:#DEE0E4"></span><span style="font-size:11px;color:#767A82">Dispose</span></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="height:4px;background:#DEE0E4"></span><span style="font-size:11px;color:#767A82">Write-off</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:12px 24px;font-size:13px">
+        <div style="display:flex;justify-content:space-between"><span style="color:#767A82">Reason</span><span>Destructive test · not reusable</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#767A82">Write-off value</span><span style="font-weight:600">€4,820</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#767A82">Proposed disposal</span><span>Recycle · metals vendor</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div style="aspect-ratio:1;background:#F3EEEA;display:flex;align-items:center;justify-content:center;font-size:11px;color:#767A82">Photo 1</div>
+          <div style="aspect-ratio:1;background:#F3EEEA;display:flex;align-items:center;justify-content:center;font-size:11px;color:#767A82">Photo 2</div>
+          <div style="aspect-ratio:1;background:#F3EEEA;display:flex;align-items:center;justify-content:center;font-size:11px;color:#767A82">Photo 3</div>
+        </div>
+      </div>
+      <div style="padding:12px 24px 8px;border-top:1px solid #DEE0E4;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Approval chain · value over €2,500</div>
+      <div style="display:flex;flex-direction:column;font-size:13px">
+        <div style="display:flex;justify-content:space-between;padding:8px 24px;border-top:1px solid #EFF1F4"><span>Lab owner · P. Raman</span><span style="color:#1B7F4E">Approved</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 24px;border-top:1px solid #EFF1F4;background:#D0DCFD"><span style="font-weight:600">EHS · you</span><span style="font-weight:600">Pending</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 24px;border-top:1px solid #EFF1F4"><span>Finance controller</span><span style="color:#767A82">Waiting</span></div>
+      </div>
+      <div style="display:flex;gap:8px;padding:16px 24px">
+        <button style="flex:1;height:40px;border:0;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:14px;font-weight:600;cursor:pointer">Approve</button>
+        <button style="height:40px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:14px;cursor:pointer">Reject</button>
+        <button style="height:40px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:14px;cursor:pointer">History</button>
+      </div>
+      <div style="padding:12px 24px 8px;border-top:1px solid #DEE0E4;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Active moves today · 6</div>
+      <div style="display:flex;flex-direction:column;font-size:13px;padding-bottom:16px">
+        <div style="display:flex;justify-content:space-between;gap:8px;padding:8px 24px;border-top:1px solid #EFF1F4"><span>B2 store → Lab L-03</span><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:#D0DCFD">Prototype build</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;padding:8px 24px;border-top:1px solid #EFF1F4"><span>Lab L-03 → Test tower</span><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:#D2F5FF">Lab test</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;padding:8px 24px;border-top:1px solid #EFF1F4"><span>B2 store → Quarantine</span><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:#FFE141">Quarantine</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;padding:8px 24px;border-top:1px solid #EFF1F4"><span>Chennai → KTEC Pune</span><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:#EFF1F4">Loan to site</span></div>
+      </div>
+    </sc-if>
+  </aside>
+
+  <div style="position:absolute;left:16px;right:16px;bottom:16px;height:64px;display:flex;align-items:center;gap:20px;padding:0 20px;background:#FFFFFF;border:1px solid #DEE0E4;box-shadow:var(--shadow-3)">
+    <button onClick="{{ resetTime }}" style="height:32px;padding:0 12px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Live</button>
+    <div style="display:flex;flex-direction:column;flex:none;width:150px">
+      <span style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">{{ timeMode }}</span>
+      <span style="font-size:14px;font-weight:600;white-space:nowrap">{{ timeLabel }}</span>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+      <input type="range" min="-30" max="28" step="1" value="{{ t }}" onChange="{{ onT }}" style="width:100%;margin:0">
+      <div style="position:relative;height:14px;font-size:11px;color:#767A82">
+        <span style="position:absolute;left:0">18 Sep · replay 30 days</span>
+        <span style="position:absolute;left:51.7%;transform:translateX(-50%);color:#141414;font-weight:600">Today</span>
+        <span style="position:absolute;right:0">15 Nov · forecast 4 weeks</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;font-size:12px;color:#4A4D55;white-space:nowrap">
+      <span>Live latency 1.2 s</span><span>60 fps</span>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isReports }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;display:flex;background:#F7F8FA">
+    <nav style="width:240px;flex:none;background:#FFFFFF;border-right:1px solid #DEE0E4;padding:20px 0;overflow:auto">
+      <div style="padding:0 20px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Masters</div>
+      <div style="display:flex;flex-direction:column;font-size:14px">
+        <span style="padding:8px 20px">Sites and locations</span>
+        <span style="padding:8px 20px;background:#D0DCFD;font-weight:600;box-shadow:inset 3px 0 0 #1450F5">Parts</span>
+        <span style="padding:8px 20px">Carriers</span>
+        <span style="padding:8px 20px">Movement purposes</span>
+        <span style="padding:8px 20px">Area templates</span>
+        <span style="padding:8px 20px">Approval rules</span>
+        <span style="padding:8px 20px">Users and roles</span>
+      </div>
+      <div style="padding:20px 20px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Configuration</div>
+      <div style="display:flex;flex-direction:column;font-size:14px">
+        <span style="padding:8px 20px">Layout configurator</span>
+        <span style="padding:8px 20px">Units and cost centres</span>
+      </div>
+      <div style="padding:20px 20px 8px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Reports</div>
+      <div style="display:flex;flex-direction:column;font-size:14px">
+        <span style="padding:8px 20px">Stock by project</span>
+        <span style="padding:8px 20px">Space utilisation</span>
+        <span style="padding:8px 20px">Shipment SLA</span>
+        <span style="padding:8px 20px">Scrap and write-off</span>
+      </div>
+    </nav>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:28px 32px;gap:16px;overflow:auto">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+        <div>
+          <h1 style="font-size:28px;line-height:1.15">Parts master</h1>
+          <div style="font-size:13px;color:#4A4D55;margin-top:4px">2,418 parts · synced with SAP S/4HANA and PLM 6 min ago</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button style="height:36px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Import Excel/CSV</button>
+          <button style="height:36px;padding:0 14px;border:1px solid #C4C7CD;border-radius:4px;background:#FFFFFF;font-size:13px;cursor:pointer">Export</button>
+          <button style="height:36px;padding:0 14px;border:0;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">New part</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;background:#FFFFFF;border:1px solid #C4C7CD;border-radius:4px;font-size:13px"><span style="color:#767A82">Saved view</span><span style="font-weight:600">R&amp;D active parts</span></div>
+        <div style="height:34px;width:260px;padding:0 12px;display:flex;align-items:center;background:#FFFFFF;border:1px solid #C4C7CD;border-radius:4px;font-size:13px;color:#767A82">Filter by part no., description</div>
+        <span style="font-size:12px;padding:5px 10px;border-radius:999px;background:#141414;color:#FFFFFF">Site · KTEC Chennai</span>
+        <span style="font-size:12px;padding:5px 10px;border-radius:999px;background:#FFFFFF;border:1px solid #DEE0E4">Hazard · any</span>
+        <span style="font-size:12px;padding:5px 10px;border-radius:999px;background:#FFFFFF;border:1px solid #DEE0E4">Export control · any</span>
+        <div style="flex:1"></div>
+        <span style="font-size:12px;color:#4A4D55">3 rows selected · <a href="#">Bulk edit</a></span>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #DEE0E4;box-shadow:var(--shadow-1);overflow:auto">
+        <div style="display:grid;grid-template-columns:36px 150px 44px minmax(180px,1.6fr) 100px 46px 84px 74px 70px 74px minmax(150px,1fr) minmax(140px,1fr) 110px;min-width:1240px;font-size:13px">
+          <div style="display:contents;font-size:12px;line-height:16px;color:#4A4D55;font-weight:600;white-space:nowrap">
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4"></span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Part no.</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Rev</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Description</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Category</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">UoM</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Hazard</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Export</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4;text-align:right">On hand</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4;text-align:right">Reserved</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Location</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Owner project</span>
+            <span style="padding:10px 12px;background:#EFF1F4;border-bottom:1px solid #DEE0E4">Status</span>
+          </div>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="12">
+            <div style="display:contents">
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }}"><span style="display:block;width:14px;height:14px;border:1.5px solid {{ r.chkBorder }};background:{{ r.chkBg }};border-radius:2px;box-sizing:border-box"></span></span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};font-weight:600;color:#1450F5;white-space:nowrap">{{ r.no }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }}">{{ r.rev }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.desc }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};color:#4A4D55">{{ r.cat }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};color:#4A4D55">{{ r.uom }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};color:#4A4D55">{{ r.haz }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};color:#4A4D55">{{ r.exp }}</span>
+              <span style="padding:4px 6px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};text-align:right"><span style="display:block;padding:4px 6px;outline:{{ r.editOutline }};background:{{ r.editBg }}">{{ r.oh }}</span></span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};text-align:right">{{ r.res }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};white-space:nowrap">{{ r.loc }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.proj }}</span>
+              <span style="padding:8px 12px;border-bottom:1px solid #EFF1F4;background:{{ r.bg }};display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ r.dot }}"></span>{{ r.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#4A4D55">
+        <span>Inline edit: on-hand for KM-ESC-DRV-040 changed 3 → 4 · posts as a count adjustment with audit trail</span>
+        <span>1–12 of 2,418</span>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:56px;background:#1A1C20;padding:24px">
+    <div style="width:300px;flex:none;color:#FFFFFF">
+      <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#A1B9FB">Mobile companion</div>
+      <h2 style="color:#FFFFFF;font-size:32px;margin-top:10px">Scan first. The twin for planning, the scanner for doing.</h2>
+      <p style="font-size:15px;color:#C4C7CD;margin-top:16px">Barcode, QR and RFID scanning with an AR mode that shows bin contents over the camera view. Works offline and syncs when back on the network.</p>
+    </div>
+
+    <div style="width:340px;height:700px;flex:none;border-radius:40px;background:#000000;padding:10px;box-sizing:border-box;box-shadow:0 24px 64px rgba(0,0,0,.5)">
+      <div style="position:relative;width:100%;height:100%;border-radius:30px;overflow:hidden;background:#2C2E33">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 60px,rgba(255,255,255,0) 60px 120px),linear-gradient(#3B3E45,#24262B)"></div>
+        <div style="position:absolute;top:56px;left:0;right:0;text-align:center;font-size:11px;color:#767A82">Camera view</div>
+        <div style="position:absolute;top:0;left:0;right:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;color:#FFFFFF;font-size:12px;font-weight:600"><span>09:41</span><span>AR · Rack D</span></div>
+        <div style="position:absolute;top:120px;left:28px;width:120px;height:86px;border:2px solid #FFFFFF"></div>
+        <div style="position:absolute;top:96px;left:28px;padding:4px 8px;background:#1450F5;color:#FFFFFF;font-size:11px;font-weight:600">D-05-04 · 12 pcs</div>
+        <div style="position:absolute;top:120px;left:170px;width:120px;height:86px;border:1px dashed #A1B9FB"></div>
+        <div style="position:absolute;top:96px;left:170px;padding:4px 8px;background:#FFFFFF;color:#141414;font-size:11px">D-06-04 · 82%</div>
+        <div style="position:absolute;top:240px;left:28px;width:120px;height:86px;border:1px dashed #A1B9FB"></div>
+        <div style="position:absolute;top:216px;left:28px;padding:4px 8px;background:#FFFFFF;color:#141414;font-size:11px">D-05-03 · 40%</div>
+        <div style="position:absolute;top:240px;left:170px;width:120px;height:86px;border:2px solid #C8312B"></div>
+        <div style="position:absolute;top:216px;left:170px;padding:4px 8px;background:#C8312B;color:#FFFFFF;font-size:11px;font-weight:600">Count due</div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#FFFFFF;padding:20px 20px 24px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#767A82"><span>Put-away · task 3 of 8</span><span>Offline · 3 queued</span></div>
+          <div style="font-size:18px;font-weight:600;line-height:1.25">20 × Door operator actuator</div>
+          <div style="font-size:13px;color:#4A4D55">KM-DX-ACT-220 rev C · PO 4500182 → bin D-05-04</div>
+          <div style="display:flex;gap:8px">
+            <span style="flex:1;height:48px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:15px;font-weight:600">Scan bin to confirm</span>
+            <span style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid #C4C7CD;font-size:12px">Skip</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:340px;height:700px;flex:none;border-radius:40px;background:#000000;padding:10px;box-sizing:border-box;box-shadow:0 24px 64px rgba(0,0,0,.5)">
+      <div style="width:100%;height:100%;border-radius:30px;overflow:hidden;background:#F7F8FA;display:flex;flex-direction:column">
+        <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;background:#FFFFFF"><span>09:41</span><span>KONE</span></div>
+        <div style="padding:8px 20px 16px;background:#FFFFFF;border-bottom:1px solid #DEE0E4">
+          <div style="font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5">Electronics store · L1</div>
+          <div style="font-size:22px;font-weight:600;margin-top:4px">My tasks</div>
+          <div style="display:flex;gap:6px;margin-top:10px">
+            <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#141414;color:#FFFFFF">All 8</span>
+            <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#EFF1F4">Pick 3</span>
+            <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#EFF1F4">Put-away 4</span>
+            <span style="font-size:12px;padding:4px 10px;border-radius:999px;background:#EFF1F4">Count 1</span>
+          </div>
+        </div>
+        <div style="margin:12px 16px 0;padding:10px 12px;background:#FFE141;font-size:12px">Offline · 3 scans queued, will sync automatically</div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px">
+          <div style="background:#FFFFFF;border:1px solid #DEE0E4;padding:14px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#767A82"><span>Pick · due 10:30</span><span>A-02-03</span></div><div style="font-size:15px;font-weight:600">10 × MonoSpace controller board</div><div style="font-size:12px;color:#4A4D55">For Lab L-03 · prototype build</div></div>
+          <div style="background:#FFFFFF;border:2px solid #1450F5;padding:13px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#1450F5;font-weight:600"><span>Put-away · in progress</span><span>D-05-04</span></div><div style="font-size:15px;font-weight:600">20 × Door operator actuator</div><div style="font-size:12px;color:#4A4D55">PO 4500182 · DHL inbound</div></div>
+          <div style="background:#FFFFFF;border:1px solid #DEE0E4;padding:14px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#C8312B"><span>Cycle count · variance</span><span>C-10-04</span></div><div style="font-size:15px;font-weight:600">IoT gateway PCB</div><div style="font-size:12px;color:#4A4D55">System 40 · last scan 36</div></div>
+          <div style="background:#FFFFFF;border:1px solid #DEE0E4;padding:14px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#767A82"><span>Pick · due 13:00</span><span>B-08-02</span></div><div style="font-size:15px;font-weight:600">12 × Lidar door sensor</div><div style="font-size:12px;color:#4A4D55">Loan to KTEC Pune</div></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="margin:0 16px 20px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:#1450F5;color:#FFFFFF;font-size:15px;font-weight:600">Scan</div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closePalette }}" style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;justify-content:center;align-items:flex-start;padding-top:72px">
+    <div onClick="{{ stop }}" style="width:640px;background:#FFFFFF;box-shadow:var(--shadow-3);border:1px solid #DEE0E4">
+      <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;border-bottom:1px solid #DEE0E4">
+        <span style="font-size:16px">KM-DX-ACT</span><span style="width:1px;height:20px;background:#1450F5"></span>
+        <div style="flex:1"></div><span style="font-size:11px;padding:2px 6px;background:#EFF1F4;border-radius:2px">Esc</span>
+      </div>
+      <sc-for list="{{ paletteGroups }}" as="g" hint-placeholder-count="3">
+        <div style="padding:12px 0 4px">
+          <div style="padding:0 20px 6px;font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#767A82">{{ g.title }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+            <button onClick="{{ it.go }}" style="display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;padding:10px 20px;border:0;text-align:left;cursor:pointer;background:{{ it.bg }}" style-hover="background:#EFF1F4">
+              <span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600;color:#141414">{{ it.title }}</span><span style="font-size:12px;color:#4A4D55">{{ it.sub }}</span></span>
+              <span style="font-size:11px;color:#767A82;white-space:nowrap">{{ it.hint }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="display:flex;gap:16px;padding:10px 20px;border-top:1px solid #DEE0E4;font-size:11px;color:#767A82"><span>Enter · fly to result</span><span>1–8 · switch module</span><span>H · toggle heatmap</span><span>M · request move</span></div>
+    </div>
+  </div>
+</sc-if>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tone&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Scene&quot;},&quot;defaultModule&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;network&quot;,&quot;routes&quot;,&quot;site&quot;,&quot;store&quot;,&quot;shipments&quot;,&quot;movements&quot;,&quot;reports&quot;,&quot;mobile&quot;],&quot;default&quot;:&quot;network&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Scene&quot;},&quot;showGhosts&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Scene&quot;}}">
+const h = React.createElement;
+const TONES = {
+  dark: { bg:'#1A1C20', land:'#2C2E33', border:'#3B3E45', grat:'rgba(255,255,255,0.05)', ground:'#24262B', grid:'rgba(255,255,255,0.05)', wall:'#2C2E33', road:'#30333A', muted:'#C4C7CD' },
+  light:{ bg:'#E4E8EE', land:'#FFFFFF', border:'#C4C7CD', grat:'rgba(20,20,20,0.06)', ground:'#F7F8FA', grid:'rgba(20,20,20,0.06)', wall:'#DEE0E4', road:'#DEE0E4', muted:'#4A4D55' }
+};
+const shade = (c, k) => { if (!c || c[0] !== '#') return c; const n = parseInt(c.slice(1), 16); return `rgb(${Math.round(((n>>16)&255)*k)},${Math.round(((n>>8)&255)*k)},${Math.round((n&255)*k)})`; };
+const rnd = (a, b, c) => { const x = Math.sin(a*12.9898 + b*78.233 + c*37.719) * 43758.5453; return x - Math.floor(x); };
+const SITES = [
+  { id:'maa', name:'KTEC Chennai', ll:[80.22,12.98], sub:'Space 78% · 4 alerts', alert:true, sel:true },
+  { id:'pnq', name:'KTEC Pune', ll:[73.86,18.52], sub:'Space 64% · 1 alert', left:true },
+  { id:'hyv', name:'Hyvinkää Test Tower', ll:[24.86,60.63], sub:'Space 88% · 2 alerts', alert:true },
+  { id:'ksn', name:'Kunshan R&D', ll:[120.98,31.38], sub:'Space 59%' },
+  { id:'chi', name:'Chicago Lab', ll:[-87.9,41.85], sub:'Space 42%' },
+];
+const MODULES = [['network','Network'],['routes','Routes'],['site','Site twin'],['store','Store twin'],['shipments','Shipments'],['movements','Moves & scrap'],['reports','Reports & masters'],['mobile','Mobile']];
+const LAYERS = {
+  network:['Sites','Shipments in transit','Internal transfers','Alerts','Weather','Day/night lighting'],
+  routes:['Live traffic','Weather risk','Ports and airports','CO₂ per leg'],
+  site:['Stores','Labs','Staging','Hazmat zones','Quarantine','Scrap yard'],
+  store:['Planned inbound','Reservations','Exceptions','Bin labels'],
+  shipments:['Inbound','Outbound','Exceptions only','Milestone trails'],
+  movements:['Internal moves','Scrap flows','Return to vendor','Purpose labels'],
+};
+const LAYERS_OFF = { 'Weather':1, 'CO₂ per leg':1, 'Bin labels':1, 'Exceptions only':1, 'Return to vendor':1 };
+const COLOR_MODES = [['occupancy','Occupancy'],['ageing','Ageing'],['project','Project'],['hazard','Hazard']];
+const LEGENDS = {
+  occupancy:[['#D0DCFD','Under 25%'],['#A1B9FB','25–50%'],['#5F88F8','50–75%'],['#1450F5','75–92%'],['#FFE141','Near full']],
+  ageing:[['#AAE1C8','Under 30 days'],['#F3EEEA','30–90 days'],['#FFE141','90–180 days'],['#FFCDD7','Over 180 days']],
+  project:[['#1450F5','DX Class 2027'],['#D2F5FF','MonoSpace retrofit'],['#AAE1C8','Escalator drive test'],['#C4C7CD','Unassigned']],
+  hazard:[['#D2F5FF','ESD sensitive'],['#A1B9FB','Temperature controlled'],['#FFCDD7','Hazmat'],['#DEE0E4','General']],
+};
+const ROUTES = [
+  { mode:'Air freight', carrier:'DHL Global Forwarding · MAA → HEL', eta:'3 days', cost:'€6,240', co2:'4.1 t', tag:'Recommended', tagBg:'#AAE1C8',
+    legs:[[[80.27,13.08],[24.96,60.32]],[[24.96,60.32],[24.86,60.63]]], label:[52,44] },
+  { mode:'Air + road via Frankfurt', carrier:'Lufthansa Cargo + DSV road and ferry', eta:'5 days', cost:'€4,980', co2:'3.6 t', tag:'Cheaper', tagBg:'#EFF1F4',
+    legs:[[[80.27,13.08],[8.68,50.03]],[[8.68,50.03],[10.87,53.95],[24.94,60.17],[24.86,60.63]]], label:[30,40] },
+  { mode:'Sea freight via Suez', carrier:'Maersk · Chennai → Helsinki port', eta:'31 days', cost:'€1,650', co2:'0.4 t', tag:'Misses need-by', tagBg:'#FFCDD7',
+    legs:[[[80.3,13.1],[81.5,6],[60,14],[51,12.5],[43.4,12.6],[38,21],[32.5,29.9],[25,34],[12,37.3],[-5.6,35.9],[-9.8,37],[-9.8,43.5],[-5.5,48.5],[-1,50.2],[2,51.2],[4.8,53.2],[8.6,54],[10.2,54.4],[14,55],[18.5,56.8],[21,59.3],[24.95,60.15]],[[24.95,60.15],[24.86,60.63]]], label:[-2,40] },
+  { mode:'Courier, split 2 + 4 pallets', carrier:'FedEx Priority + DHL Global Forwarding', eta:'2 / 3 days', cost:'€7,410', co2:'4.4 t', tag:'Fastest', tagBg:'#D2F5FF',
+    legs:[[[80.27,13.08],[51.4,25.3],[24.96,60.32]],[[24.96,60.32],[24.86,60.63]]], label:[60,32] },
+];
+const SHIPS = [
+  { id:'AWB 7834 5521 0093', carrier:'DHL', route:'Chennai → Hyvinkää · via FRA', eta:'ETA 21 Oct', status:'Customs hold', dot:'#C8312B', a:[80.27,13.08], b:[24.86,60.63], via:[8.68,50.03], hold:true },
+  { id:'BL MAEU 2238 1190', carrier:'Maersk', route:'Kunshan → Chennai · sea', eta:'ETA 29 Oct', status:'At sea', dot:'#1450F5', a:[121.4,31.2], b:[80.27,13.08], dur:'26s' },
+  { id:'FDX 6612 0034 5521', carrier:'FedEx', route:'Stuttgart supplier → Chennai', eta:'ETA 20 Oct', status:'In transit', dot:'#1450F5', a:[9.18,48.78], b:[80.27,13.08], dur:'14s' },
+  { id:'BD 88213 4410', carrier:'Blue Dart', route:'Bengaluru vendor → Chennai', eta:'ETA today 17:00', status:'Out for delivery', dot:'#1B7F4E', a:[77.6,12.97], b:[80.27,13.08], dur:'5s' },
+  { id:'DLV 2210 9934', carrier:'Delhivery', route:'Delhi → KTEC Pune', eta:'ETA 19 Oct', status:'In transit', dot:'#1450F5', a:[77.1,28.6], b:[73.86,18.52], dur:'8s' },
+  { id:'UPS 1Z 99A 0412', carrier:'UPS', route:'Hyvinkää → KTEC Pune', eta:'ETA 23 Oct', status:'In transit', dot:'#1450F5', a:[24.86,60.63], b:[73.86,18.52], dur:'18s' },
+  { id:'DTDC 7731 0020', carrier:'DTDC', route:'Shenzhen → KTEC Pune', eta:'ETA 25 Oct', status:'Delay risk', dot:'#C77700', a:[114.06,22.54], b:[73.86,18.52], dur:'16s' },
+  { id:'DSV RD 44120', carrier:'DSV road', route:'Milan supplier → Hyvinkää', eta:'ETA 22 Oct', status:'In transit', dot:'#1450F5', a:[9.19,45.46], b:[24.86,60.63], dur:'10s' },
+];
+const PARTS = [
+  ['KM-DX-ACT-220','C','Door operator actuator','Electromech','pcs','ESD','—',12,4,'D-05-04 · Chennai','DX Class 2027','Available'],
+  ['KM-MS-CTL-118','B','MonoSpace controller board','Electronics','pcs','ESD','EAR99',36,10,'A-02-03 · Chennai','MonoSpace retrofit','Available'],
+  ['KM-ESC-DRV-040','A','Escalator drive gearbox','Mechanical','pcs','—','—',4,3,'Heavy L0 · Chennai','Escalator drive test','Reserved'],
+  ['KM-BAT-LI-500','D','Li-ion backup pack 48 V','Energy','pcs','UN3480','5A992',18,0,'Hazmat H-01 · Chennai','DX Class 2027','Quarantined'],
+  ['KM-SNS-LDR-077','A','Lidar door sensor','Sensors','pcs','ESD','5A991',54,12,'B-08-02 · Chennai','People flow sensing','Available'],
+  ['KM-RPE-HSR-210','F','Hoisting rope sample','Ropes','m','—','—',240,80,'Test tower · Hyvinkää','UltraRope trial','In transit'],
+  ['KM-GUI-RAL-016','B','Guide rail T89 section','Structural','pcs','—','—',22,0,'Yard Y-02 · Pune','—','Available'],
+  ['KM-CAB-PNL-301','C','Car panel prototype','Interior','pcs','—','—',4,4,'Lab L-03 · Chennai','DX Class 2027','Consumed'],
+  ['KM-LUB-SYN-005','A','Synthetic lubricant 5 L','Consumable','L','Flammable','—',60,0,'Hazmat H-02 · Chennai','—','Available'],
+  ['KM-MOT-PM-150','E','PM motor 15 kW','Electromech','pcs','—','EAR99',2,1,'Heavy L0 · Chennai','Escalator drive test','Planned'],
+  ['KM-PCB-IOT-022','A','IoT gateway PCB','Electronics','pcs','ESD','5A992',120,48,'C-10-04 · Chennai','24/7 Connected','Available'],
+  ['KM-SFT-BRK-090','B','Safety brake assembly','Safety','pcs','—','—',6,2,'Scrap yard · Chennai','DX Class 2027','Scrap pending'],
+];
+const STATUS_DOT = { 'Available':'#1B7F4E','Reserved':'#1450F5','Quarantined':'#C77700','In transit':'#A1B9FB','Consumed':'#767A82','Planned':'#C4C7CD','Scrap pending':'#C8312B' };
+
+class Component extends DCLogic {
+  state = { screen:null, layersOff:{}, colorMode:'occupancy', t:0, route:0, ship:0, palette:false, land:null, borders:null };
+
+  componentDidMount() {
+    const load = () => {
+      if (!window.d3 || !window.topojson) { this._tm = setTimeout(load, 120); return; }
+      fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r => r.json()).then(topo => {
+        const tj = window.topojson;
+        this.setState({ land: tj.feature(topo, topo.objects.countries), borders: tj.mesh(topo, topo.objects.countries, (a, b) => a !== b) });
+      }).catch(() => {});
+    };
+    load();
+    this._key = e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); this.setState({ palette:true }); return; }
+      if (e.key === 'Escape') { this.setState({ palette:false }); return; }
+      if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+      const n = parseInt(e.key, 10); if (n >= 1 && n <= 8) this.setState({ screen: MODULES[n-1][0], palette:false });
+    };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() { clearTimeout(this._tm); window.removeEventListener('keydown', this._key); }
+
+  geo() {
+    if (this._geo || !this.state.land) return this._geo;
+    const d3 = window.d3;
+    const world = d3.geoNaturalEarth1().fitExtent([[280, 30], [1060, 800]], { type:'Sphere' });
+    const region = d3.geoMercator().fitExtent([[290, 40], [1030, 790]], { type:'MultiPoint', coordinates:[[-12,2],[124,2],[-12,64],[124,64]] });
+    const mk = p => { const path = d3.geoPath(p); return { proj:p, path, land:path(this.state.land), borders:path(this.state.borders), grat:path(d3.geoGraticule10()) }; };
+    this._geo = { world: mk(world), region: mk(region) };
+    return this._geo;
+  }
+
+  svg(c, ...kids) {
+    return h('svg', { viewBox:'0 0 1440 844', preserveAspectRatio:'xMidYMid slice', style:{ width:'100%', height:'100%', display:'block', fontFamily:'Inter, sans-serif' } },
+      h('rect', { x:-400, y:-400, width:2240, height:1644, fill:c.bg }), ...kids);
+  }
+  base(G, c) {
+    return [h('path', { d:G.grat, fill:'none', stroke:c.grat }), h('path', { d:G.land, fill:c.land }), h('path', { d:G.borders, fill:'none', stroke:c.border, strokeWidth:0.6 })];
+  }
+  tag(x, y, title, sub, o = {}) {
+    const w = Math.max(title.length * 7, sub ? sub.length * 6.1 : 0) + 20, hh = sub ? 40 : 26, tx = o.left ? -w - 12 : (o.center ? -w / 2 : 12);
+    return h('g', { transform:`translate(${x.toFixed(1)},${y.toFixed(1)})` },
+      h('rect', { x:tx, y:-hh / 2, width:w, height:hh, fill:o.fill || '#FFFFFF', stroke:o.stroke || 'none', strokeWidth:1.5 }),
+      h('text', { x:tx + 10, y:sub ? -4 : 4, fontSize:12, fontWeight:600, fill:o.ink || '#141414' }, title),
+      sub ? h('text', { x:tx + 10, y:12, fontSize:11, fill:o.sink || '#4A4D55' }, sub) : null);
+  }
+  pulse(x, y, col) {
+    return h('circle', { cx:x, cy:y, r:8, fill:'none', stroke:col, strokeWidth:2 },
+      h('animate', { attributeName:'r', values:'8;26', dur:'1.6s', repeatCount:'indefinite' }),
+      h('animate', { attributeName:'opacity', values:'1;0', dur:'1.6s', repeatCount:'indefinite' }));
+  }
+  flow(d, o = {}) {
+    const col = o.color || '#A1B9FB';
+    return h('g', null,
+      h('path', { d, fill:'none', stroke:col, strokeOpacity:o.op ?? 0.9, strokeWidth:o.w || 1.5, strokeDasharray:o.dash || '6 6', strokeLinecap:'round' },
+        o.dash === 'none' ? null : h('animate', { attributeName:'stroke-dashoffset', from:0, to:-24, dur:'1s', repeatCount:'indefinite' })),
+      o.dot === false ? null : h('circle', { r:o.r || 4, fill:o.dotFill || '#FFFFFF', stroke:col, strokeWidth:2 },
+        h('animateMotion', { dur:o.dur || '6s', repeatCount:'indefinite', path:d, begin:o.begin || '0s' })));
+  }
+  loading(c) { return this.svg(c, h('text', { x:660, y:420, fill:c.muted, fontSize:14, textAnchor:'middle' }, 'Loading base map…')); }
+
+  networkScene(c) {
+    const g = this.geo(); if (!g) return this.loading(c);
+    const W = g.world, P = ll => W.proj(ll), S = Object.fromEntries(SITES.map(s => [s.id, s.ll]));
+    const arcs = [['maa','hyv','9s'],['ksn','maa','11s'],['pnq','maa','5s'],['hyv','chi','12s'],['maa','pnq','6s']]
+      .map(([a, b, dur], i) => this.flow(W.path({ type:'LineString', coordinates:[S[a], S[b]] }), { dur, begin:`-${i}s` }));
+    const marks = SITES.map(s => { const [x, y] = P(s.ll);
+      return h('g', null, s.alert ? this.pulse(x, y, '#C8312B') : null,
+        s.sel ? h('circle', { cx:x, cy:y, r:13, fill:'none', stroke:'#FFFFFF', strokeWidth:1.5 }) : null,
+        h('circle', { cx:x, cy:y, r:6, fill:'#1450F5', stroke:'#FFFFFF', strokeWidth:2 }),
+        this.tag(x + (s.left ? -6 : 6), y, s.name, s.sub, { left:s.left, stroke:s.sel ? '#1450F5' : 'none' })); });
+    return this.svg(c, ...this.base(W, c), ...arcs, ...marks);
+  }
+
+  routesScene(c) {
+    const g = this.geo(); if (!g) return this.loading(c);
+    const R = g.region, sel = this.state.route;
+    const order = ROUTES.map((r, i) => i).sort((a, b) => (a === sel) - (b === sel));
+    const lines = order.map(i => { const r = ROUTES[i], on = i === sel;
+      return h('g', null, ...r.legs.map((leg, j) => this.flow(R.path({ type:'LineString', coordinates:leg }),
+        on ? { color:'#1450F5', w:4, dash: j ? '2 6' : '10 6', dur:'7s', r:6 } : { color:'#767A82', w:1.5, dash:'4 6', dot:false, op:0.8 }))); });
+    const labels = ROUTES.map((r, i) => { const [x, y] = R.proj(r.label), on = i === sel;
+      return this.tag(x, y, r.mode, `${r.eta} · ${r.cost}`, { center:true, fill: on ? '#1450F5' : '#FFFFFF', ink: on ? '#FFFFFF' : '#141414', sink: on ? '#FFFFFF' : '#4A4D55' }); });
+    const [wx, wy] = R.proj([64, 15]);
+    const risk = h('g', null, h('circle', { cx:wx, cy:wy, r:54, fill:'rgba(255,225,65,0.12)', stroke:'#FFE141', strokeDasharray:'4 4', strokeWidth:1.5 }),
+      this.tag(wx, wy + 70, 'Cyclone watch', 'Arabian Sea · sea leg +3 days risk', { center:true, fill:'#FFE141' }));
+    const ends = [[[80.27,13.08],'KTEC Chennai'],[[24.86,60.63],'Hyvinkää Test Tower']].map(([ll, n], i) => { const [x, y] = R.proj(ll);
+      return h('g', null, h('circle', { cx:x, cy:y, r:7, fill:'#1450F5', stroke:'#FFFFFF', strokeWidth:2 }), this.tag(x + 6, y + (i ? -6 : 0), n, null)); });
+    return this.svg(c, ...this.base(R, c), risk, ...lines, ...labels, ...ends);
+  }
+
+  shipmentsScene(c) {
+    const g = this.geo(); if (!g) return this.loading(c);
+    const R = g.region, sel = this.state.ship;
+    const items = SHIPS.map((s, i) => {
+      if (s.hold) {
+        const done = R.path({ type:'LineString', coordinates:[s.a, s.via] }), rest = R.path({ type:'LineString', coordinates:[s.via, s.b] });
+        const [hx, hy] = R.proj(s.via);
+        return h('g', null, this.flow(done, { color:'#1450F5', w: i === sel ? 3.5 : 2, dash:'none', dot:false }), this.flow(rest, { color:'#C8312B', w:2, dash:'3 6', dot:false }),
+          this.pulse(hx, hy, '#C8312B'), h('circle', { cx:hx, cy:hy, r:7, fill:'#C8312B', stroke:'#FFFFFF', strokeWidth:2 }),
+          this.tag(hx - 8, hy, 'Customs hold · Frankfurt', 'AWB 7834 5521 0093 · DHL', { left:true, stroke:'#C8312B' }));
+      }
+      const d = R.path({ type:'LineString', coordinates:[s.a, s.b] }), on = i === sel;
+      return this.flow(d, { color: on ? '#1450F5' : (s.dot === '#C77700' ? '#FFE141' : '#A1B9FB'), w: on ? 3 : 1.2, op: on ? 1 : 0.55, dash:'2 5', dur:s.dur, begin:`-${i * 1.3}s`, r: on ? 6 : 4.5, dotFill: on ? '#1450F5' : '#FFFFFF' });
+    });
+    const sites = SITES.filter(s => s.id !== 'chi').map(s => { const [x, y] = R.proj(s.ll);
+      return h('g', null, h('rect', { x:x - 5, y:y - 5, width:10, height:10, fill:'#FFFFFF', stroke:'#1450F5', strokeWidth:2 }),
+        h('text', { x:x + 10, y:y + 4, fontSize:11, fontWeight:600, fill:c.muted }, s.name)); });
+    return this.svg(c, ...this.base(R, c), ...items, ...sites);
+  }
+
+  iso(x, y, z, o) { return [o.ox + (x - y) * 0.866 * o.s, o.oy + (x + y) * 0.5 * o.s - z * o.s]; }
+  poly(a, o) { return a.map(p => this.iso(p[0], p[1], p[2], o).map(n => n.toFixed(1)).join(',')).join(' '); }
+  box(x, y, z, w, d, hh, col, o, ex = {}) {
+    const b = { stroke:ex.stroke || 'rgba(0,0,0,0.22)', strokeWidth:ex.sw || 0.6, fillOpacity:ex.op ?? 1, strokeDasharray:ex.dash, strokeLinejoin:'round' };
+    const t = z + hh;
+    return [
+      h('polygon', { ...b, points:this.poly([[x,y+d,z],[x+w,y+d,z],[x+w,y+d,t],[x,y+d,t]], o), fill:shade(col, 0.8) }),
+      h('polygon', { ...b, points:this.poly([[x+w,y,z],[x+w,y+d,z],[x+w,y+d,t],[x+w,y,t]], o), fill:shade(col, 0.64) }),
+      h('polygon', { ...b, points:this.poly([[x,y,t],[x+w,y,t],[x+w,y+d,t],[x,y+d,t]], o), fill:col }),
+    ];
+  }
+  tile(x, y, w, d, o, p) { return h('polygon', { points:this.poly([[x,y,0],[x+w,y,0],[x+w,y+d,0],[x,y+d,0]], o), ...p }); }
+
+  campus(c, peel, labels) {
+    const o = { ox:600, oy:205, s:16 }, out = [], lab = [];
+    out.push(this.tile(-2, -2, 46, 34, o, { fill:c.ground, stroke:c.border }));
+    out.push(this.tile(-2, 10, 46, 1.2, o, { fill:c.road }), this.tile(15.4, -2, 1.2, 34, o, { fill:c.road }));
+    const B = [
+      { k:'adm', x:2, y:2, w:11, d:6, h:4, col:'#DEE0E4', n:'Admin and offices', ly:30 },
+      { k:'lab', x:2, y:13, w:12, d:8, h:3.5, col:'#D2F5FF', n:'R&D labs', s:'12 labs · 3 booked today', ly:30 },
+      { k:'b2', x:18, y:2, w:12, d:7, h:9, col:'#A1B9FB', n:'Building B2 · Stores', s:'3 floors · 78% space', ly:36 },
+      { k:'tow', x:34, y:2, w:4, d:4, h:20, col:'#C4C7CD', n:'Test tower', s:'Shaft 2 in test', ly:24 },
+      { k:'qua', x:18, y:15, w:5, d:4, h:1.6, col:'#FFE141', n:'Quarantine', s:'2 lots on hold', ly:28 },
+      { k:'haz', x:25, y:15, w:5, d:4, h:2.2, col:'#FFCDD7', n:'Hazmat store', s:'31 °C · limit 25 °C', ly:96, alert:true },
+      { k:'scr', x:33, y:14, w:8, d:6, h:0.3, col:'#F3EEEA', n:'Scrap yard', s:'4 open cases', ly:40 },
+      { k:'stg', x:18, y:23, w:13, d:4, h:0.3, col:'#AAE1C8', n:'Staging and docks', s:'5 inbound today', ly:24 },
+    ].sort((a, b) => (a.x + a.w / 2 + a.y + a.d / 2) - (b.x + b.w / 2 + b.y + b.d / 2));
+    B.forEach(b => {
+      let top = b.h;
+      if (peel && b.k === 'b2') {
+        out.push(...this.box(b.x, b.y, 0, b.w, b.d, 3, '#C4C7CD', o));
+        out.push(...this.box(b.x, b.y, 6.5, b.w, b.d, 0.5, '#1450F5', o, { stroke:'#FFFFFF', sw:1 }));
+        for (let i = 0; i < 4; i++) out.push(...this.box(b.x + 1, b.y + 0.8 + i * 1.6, 7, b.w - 2, 0.6, 1, '#D0DCFD', o));
+        out.push(...this.box(b.x, b.y, 11.5, b.w, b.d, 0.5, '#DEE0E4', o, { op:0.6 }));
+        top = 12;
+        [[12, 'L2 · Lab stores', 0], [7, 'L1 · Electronics store', 1], [3, 'L0 · Receiving and heavy', 0]].forEach(([z, n, on]) => {
+          const [x, y] = this.iso(b.x + b.w, b.y + b.d, z, o);
+          lab.push(this.tag(x + 4, y, n, null, on ? { fill:'#1450F5', ink:'#FFFFFF' } : {}));
+        });
+      } else out.push(...this.box(b.x, b.y, 0, b.w, b.d, b.h, b.col, o));
+      const [tx, ty] = this.iso(b.x + b.w / 2, b.y + b.d / 2, top, o);
+      if (b.alert) { lab.push(this.pulse(tx, ty, '#C8312B'), h('circle', { cx:tx, cy:ty, r:5, fill:'#C8312B', stroke:'#FFFFFF', strokeWidth:1.5 })); }
+      if (labels && !(peel && b.k === 'b2')) {
+        lab.push(h('line', { x1:tx, y1:ty, x2:tx, y2:ty - b.ly, stroke:c.muted, strokeWidth:1 }));
+        lab.push(this.tag(tx - 12, ty - b.ly, b.n, labels === 'full' ? b.s : null, b.alert ? { stroke:'#C8312B' } : {}));
+      }
+    });
+    return { o, out, lab };
+  }
+  siteScene(c) { const { out, lab } = this.campus(c, true, 'full'); return this.svg(c, ...out, ...lab); }
+  movementsScene(c) {
+    const { o, out, lab } = this.campus(c, false, 'name');
+    const I = (x, y, z) => this.iso(x, y, z, o);
+    const F = [
+      [I(24, 5.5, 9), I(8, 17, 3.5), '#A1B9FB', 'Prototype build · 24 units', '5s', 0.5, -30, -24],
+      [I(8, 17, 3.5), I(36, 4, 12), '#D2F5FF', 'Lab test · 6 units', '6s', 0.5, 0, 0],
+      [I(36, 4, 6), I(37, 17, 0.3), '#C8312B', 'Scrap · SC-2026-0418', '4s', 0.5, 70, 0],
+      [I(24, 5.5, 9), I(20.5, 17, 1.6), '#FFE141', 'Quarantine · 2 lots', '4s', 0.75, -90, 10],
+      [I(24.5, 25, 0.3), I(26, 5.5, 9), '#AAE1C8', 'Put-away · 18 pallets', '5s', 0.3, 80, 20],
+      [I(30, 5.5, 9), [1250, 150], '#C4C7CD', 'Loan to KTEC Pune · 3 units', '7s', 0.6, 0, 0],
+    ];
+    const flows = [], tags = [];
+    F.forEach(([a, b, col, n, dur, tt, dx, dy], i) => {
+      const cx = (a[0] + b[0]) / 2, cy = Math.min(a[1], b[1]) - 90;
+      flows.push(this.flow(`M${a[0].toFixed(1)},${a[1].toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${b[0].toFixed(1)},${b[1].toFixed(1)}`, { color:col, w:2.5, dash:'8 6', dur, begin:`-${i}s`, r:5 }));
+      const u = 1 - tt, mx = u * u * a[0] + 2 * u * tt * cx + tt * tt * b[0], my = u * u * a[1] + 2 * u * tt * cy + tt * tt * b[1];
+      if (dx || dy) tags.push(h('line', { x1:mx, y1:my, x2:mx + dx, y2:my + dy, stroke:col, strokeWidth:1 }));
+      tags.push(this.tag(mx + dx, my + dy, n, null, { center:true, fill:col, ink:col === '#C8312B' ? '#FFFFFF' : '#141414' }));
+    });
+    return this.svg(c, ...out, ...lab, ...flows, ...tags);
+  }
+
+  binColor(mode, r, i, k) {
+    const v = rnd(r, i, k), L = LEGENDS[mode];
+    if (mode === 'occupancy') return v < .25 ? L[0][0] : v < .5 ? L[1][0] : v < .75 ? L[2][0] : v < .92 ? L[3][0] : L[4][0];
+    if (mode === 'ageing') { const a = rnd(r + 5, i, k); return a < .4 ? L[0][0] : a < .7 ? L[1][0] : a < .88 ? L[2][0] : L[3][0]; }
+    if (mode === 'project') { if (v > .85) return L[3][0]; return i < 4 ? L[0][0] : i < 7 ? L[1][0] : i < 10 ? L[2][0] : L[3][0]; }
+    if (r < 2) return L[0][0]; if (r === 2 && i > 7) return L[1][0]; if (r === 3 && k === 0 && i > 8) return L[2][0]; return L[3][0];
+  }
+  storeScene(c) {
+    const o = { ox:610, oy:190, s:28 }, mode = this.state.colorMode, off = this.state.layersOff.store || {};
+    const out = [this.tile(0, 0, 20, 16, o, { fill:c.ground, stroke:c.border })];
+    for (let i = 2; i < 20; i += 2) out.push(h('polygon', { points:this.poly([[i,0,0],[i,16,0]], o), stroke:c.grid, fill:'none' }));
+    for (let j = 2; j < 16; j += 2) out.push(h('polygon', { points:this.poly([[0,j,0],[20,j,0]], o), stroke:c.grid, fill:'none' }));
+    out.push(h('polygon', { points:this.poly([[0,0,0],[20,0,0],[20,0,4.6],[0,0,4.6]], o), fill:c.wall, fillOpacity:0.7 }));
+    out.push(h('polygon', { points:this.poly([[0,0,0],[0,16,0],[0,16,4.6],[0,0,4.6]], o), fill:shade(c.wall, 0.85), fillOpacity:0.7 }));
+    out.push(this.tile(1.5, 0.9, 15, 5.2, o, { fill:'rgba(210,245,255,0.08)', stroke:'#D2F5FF', strokeDasharray:'5 4' }));
+    out.push(this.tile(16.6, 1, 3, 4.6, o, { fill:'rgba(255,225,65,0.12)', stroke:'#FFE141', strokeDasharray:'5 4' }));
+    out.push(this.tile(1, 12.6, 15.5, 3, o, { fill:'rgba(170,225,200,0.10)', stroke:'#AAE1C8', strokeDasharray:'5 4' }));
+    const zl = (x, y, t, col) => { const [px, py] = this.iso(x, y, 0, o); return h('text', { x:px, y:py, fontSize:11, fontWeight:600, fill:col, letterSpacing:'0.08em' }, t); };
+    out.push(zl(1.7, 6.6, 'ESD PROTECTED AREA', '#D2F5FF'), zl(16.8, 6.1, 'QUARANTINE', '#FFE141'), zl(1.2, 16.2, 'RECEIVING AND STAGING', '#AAE1C8'));
+    const rows = [1.5, 4.5, 7.5, 10.5], bins = [];
+    rows.forEach((y, r) => { out.push(...this.box(1.9, y - 0.05, 0, 13.9, 1.1, 0.12, '#4A4D55', o));
+      const [lx, ly] = this.iso(1.2, y + 0.5, 0, o); out.push(h('text', { x:lx - 8, y:ly + 4, fontSize:14, fontWeight:600, fill:c.muted }, 'ABCD'[r]));
+      for (let i = 0; i < 12; i++) for (let k = 0; k < 4; k++) bins.push({ r, i, k, x:2 + i * 1.15, y, z:0.15 + k * 0.95 }); });
+    bins.sort((a, b) => (a.x + a.y) * 10 + a.z - ((b.x + b.y) * 10 + b.z));
+    const EX = { r:2, i:9, k:3 }, SEL = { r:3, i:4, k:3 };
+    bins.forEach(b => {
+      const isEx = b.r === EX.r && b.i === EX.i && b.k === EX.k && !off['Exceptions'];
+      const res = !off['Reservations'] && b.r === 1 && b.i > 1 && b.i < 4 && b.k === 3;
+      const col = isEx ? '#C8312B' : this.binColor(mode, b.r, b.i, b.k);
+      const faces = this.box(b.x, b.y, b.z, 1.05, 1, 0.8, col, o, res ? { stroke:'#FFFFFF', dash:'3 2', sw:1 } : {});
+      out.push(isEx ? h('g', null, h('animate', { attributeName:'opacity', values:'1;0.4;1', dur:'1.4s', repeatCount:'indefinite' }), ...faces) : h('g', null, ...faces));
+    });
+    if (this.props.showGhosts !== false && !off['Planned inbound']) {
+      const n = this.state.t > 7 ? 7 : 5;
+      for (let i = 0; i < n; i++) out.push(...this.box(1.6 + i * 2.1, 13.1, 0, 1.8, 1.8, 1.3, '#FFFFFF', o, { op:0.12, stroke:'#A1B9FB', dash:'4 3', sw:1.2 }));
+      const [gx, gy] = this.iso(6, 14, 1.3, o);
+      out.push(h('line', { x1:gx, y1:gy, x2:gx - 40, y2:gy + 60, stroke:c.muted }), this.tag(gx - 40, gy + 60, 'Planned inbound · PO 4500182', `${n} pallets · ETA 21 Oct · 2 slots free`, { left:true }));
+    }
+    const sx = 2 + SEL.i * 1.15, sy = rows[SEL.r], sz = 0.15 + SEL.k * 0.95;
+    out.push(...this.box(sx, sy, sz, 1.05, 1, 0.8, 'none', o, { stroke:'#FFFFFF', sw:2.5 }));
+    const [cx, cy] = this.iso(sx + 0.52, sy + 0.5, sz + 0.8, o);
+    const menu = ['Move', 'Reserve', 'Count', 'Scrap', 'History', 'Docs'].map((t, j) => {
+      const a = -Math.PI / 2 + j * Math.PI / 3, x = cx + Math.cos(a) * 66, y = cy + Math.sin(a) * 66;
+      return h('g', null, h('circle', { cx:x, cy:y, r:25, fill: j === 0 ? '#1450F5' : '#FFFFFF', stroke:'#DEE0E4' }),
+        h('text', { x, y:y + 4, fontSize:11, fontWeight:600, textAnchor:'middle', fill: j === 0 ? '#FFFFFF' : '#141414' }, t));
+    });
+    out.push(h('circle', { cx, cy, r:88, fill:'rgba(20,20,20,0.35)' }), ...menu, h('circle', { cx, cy, r:6, fill:'#FFFFFF', stroke:'#1450F5', strokeWidth:3 }));
+    if (!off['Exceptions']) {
+      const [ex, ey] = this.iso(2 + EX.i * 1.15 + 0.5, rows[EX.r] + 0.5, 0.15 + EX.k * 0.95 + 0.8, o);
+      out.push(h('line', { x1:ex, y1:ey, x2:ex + 30, y2:ey - 40, stroke:'#C8312B', strokeWidth:1.5 }));
+      out.push(h('foreignObject', { x:ex + 30, y:ey - 132, width:250, height:124 },
+        h('div', { xmlns:'http://www.w3.org/1999/xhtml', style:{ background:'#FFFFFF', border:'1.5px solid #C8312B', padding:'10px 12px', fontFamily:'Inter, sans-serif', boxSizing:'border-box', height:'100%' } },
+          h('div', { style:{ fontSize:11, color:'#C8312B', fontWeight:600, letterSpacing:'0.08em' } }, 'C-10-04 · COUNT VARIANCE'),
+          h('div', { style:{ fontSize:14, fontWeight:600, marginTop:4 } }, 'IoT gateway PCB'),
+          h('div', { style:{ fontSize:12, color:'#4A4D55', marginTop:2 } }, 'System 40 · scanned 36 · 24/7 Connected'),
+          h('div', { style:{ fontSize:12, color:'#4A4D55', marginTop:2 } }, 'Last move 9 Oct · next: recount today'))));
+    }
+    return this.svg(c, ...out);
+  }
+
+  renderVals() {
+    const screen = this.state.screen || this.props.defaultModule || 'network';
+    const c = TONES[this.props.tone] || TONES.dark;
+    const go = s => () => this.setState({ screen:s, palette:false });
+    const canvas = !['reports', 'mobile'].includes(screen);
+    let scene = null;
+    if (canvas) scene = this[screen + 'Scene'](c);
+    const CR = {
+      network:[['World','network']], routes:[['World','network'],['Route plan · Chennai → Hyvinkää','routes']],
+      site:[['World','network'],['KTEC Chennai','site'],['Building B2','site']],
+      store:[['World','network'],['KTEC Chennai','site'],['Building B2','site'],['Floor L1','site'],['Electronics store','store'],['Rack D','store'],['Bin D-05-04','store']],
+      shipments:[['World','network'],['Shipments · 142 live','shipments']],
+      movements:[['World','network'],['KTEC Chennai','site'],['Movements and scrap','movements']],
+    }[screen] || [];
+    const offMap = this.state.layersOff[screen] || {};
+    const t = this.state.t, dt = new Date(2026, 9, 18 + t);
+    const fmt = dt.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+    const P = [
+      { title:'Parts', items:[{ title:'KM-DX-ACT-220 rev C · Door operator actuator', sub:'Bin D-05-04 · Electronics store · KTEC Chennai', hint:'Fly to bin', go:go('store') },
+                               { title:'KM-DX-ACT-210 rev B · Door operator actuator (superseded)', sub:'Hyvinkää Test Tower · 2 pcs', hint:'Fly to site', go:go('site') }] },
+      { title:'Shipments', items:[{ title:'AWB 7834 5521 0093 · DHL', sub:'Customs hold in Frankfurt · DX Class 2027', hint:'Track', go:go('shipments') }] },
+      { title:'Commands', items:[{ title:'Plan a route between sites', sub:'Compare road, air, sea and courier', hint:'R', go:go('routes') },
+                                 { title:'Open scrap approvals', sub:'1 case awaiting you', hint:'S', go:go('movements') }] },
+    ].map(g => ({ ...g, items:g.items.map((it, j) => ({ ...it, bg:'#FFFFFF' })) }));
+    return {
+      modules: MODULES.map(([id, label]) => ({ label, go:go(id), color: id === screen ? '#141414' : '#4A4D55', weight: id === screen ? 600 : 400, bar: id === screen ? '#1450F5' : 'transparent' })),
+      scr: { network:screen === 'network', routes:screen === 'routes', site:screen === 'site', store:screen === 'store', shipments:screen === 'shipments', movements:screen === 'movements' },
+      isCanvas: canvas, isReports: screen === 'reports', isMobile: screen === 'mobile', scene,
+      crumbs: CR.map(([label, s], i) => { const last = i === CR.length - 1; return { label, go:go(s), sepDisplay: i ? 'inline' : 'none', color: last ? '#141414' : '#1450F5', weight: last ? 600 : 400 }; }),
+      layers: (LAYERS[screen] || []).map(l => { const on = offMap[l] === undefined ? !LAYERS_OFF[l] : !offMap[l];
+        return { label:l, track: on ? '#1450F5' : '#C4C7CD', knob: on ? '16px' : '2px',
+          toggle: () => this.setState(st => ({ layersOff: { ...st.layersOff, [screen]: { ...(st.layersOff[screen] || {}), [l]: on } } })) }; }),
+      colorModes: COLOR_MODES.map(([id, label]) => { const on = this.state.colorMode === id;
+        return { label, go:() => this.setState({ colorMode:id }), bg: on ? '#1450F5' : '#FFFFFF', color: on ? '#FFFFFF' : '#141414', border: on ? '#1450F5' : '#C4C7CD' }; }),
+      legend: LEGENDS[this.state.colorMode].map(([color, label]) => ({ color, label })),
+      t, onT: e => this.setState({ t: parseInt(e.target.value, 10) }), resetTime: () => this.setState({ t:0 }),
+      timeMode: t < 0 ? 'Replay' : t > 0 ? 'Forecast' : 'Live', timeLabel: t === 0 ? `Today · ${fmt}` : fmt,
+      routeOptions: ROUTES.map((r, i) => { const on = i === this.state.route;
+        return { ...r, go:() => this.setState({ route:i }), bg: on ? '#FFFFFF' : '#F7F8FA', border: on ? '#1450F5' : '#DEE0E4', shadow: on ? 'inset 0 0 0 1px #1450F5' : 'none' }; }),
+      shipments: SHIPS.slice(0, 6).map((s, i) => ({ id:`${s.carrier} · ${s.id}`, route:s.route, eta:s.eta, status:s.status, dot:s.dot, bg: i === this.state.ship ? '#D0DCFD' : '#FFFFFF', go:() => this.setState({ ship:i }) })),
+      rows: PARTS.map((p, i) => { const sel = i === 1 || i === 4 || i === 10, edit = i === 2;
+        return { no:p[0], rev:p[1], desc:p[2], cat:p[3], uom:p[4], haz:p[5], exp:p[6], oh:p[7], res:p[8], loc:p[9], proj:p[10], status:p[11], dot:STATUS_DOT[p[11]],
+          bg: sel ? '#D0DCFD' : '#FFFFFF', chkBg: sel ? '#1450F5' : '#FFFFFF', chkBorder: sel ? '#1450F5' : '#C4C7CD',
+          editOutline: edit ? '2px solid #1450F5' : 'none', editBg: edit ? '#FFFFFF' : 'transparent' }; }),
+      goSite: go('site'), goRoutes: go('routes'), goStore: go('store'),
+      paletteOpen: this.state.palette, openPalette: () => this.setState({ palette:true }), closePalette: () => this.setState({ palette:false }),
+      stop: e => e.stopPropagation(), paletteGroups: P,
+    };
+  }
+}
+</script>
+</body>
+</html>

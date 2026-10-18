@@ -1,0 +1,3 @@
+/* KONE Design System — root stylesheet. Consumers link this one file. */
+@import url('colors_and_type.css');
+@import url('slides/slides.css');
