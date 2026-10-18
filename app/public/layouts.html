@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KTEC Materials Twin · screen sizes</title>
+<style>:root{--font-sans:Inter,"Helvetica Neue",Arial,sans-serif;--font-secondary:"KONE Information",Inter,"Helvetica Neue",Arial,sans-serif}</style>
+<style>
+body{margin:0;background:#F3EEEA;font-family:var(--font-sans);color:#141414}
+a{color:#1450F5}a:hover{color:#0E3DC4}
+header{padding:40px 48px 8px;max-width:1400px}
+.eb{font-family:var(--font-secondary);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#1450F5}
+h1{font-size:40px;line-height:1.1;margin:10px 0 8px}
+header p{font-size:16px;color:#4A4D55;max-width:760px;margin:0}
+.grid{display:flex;flex-wrap:wrap;gap:40px;padding:32px 48px 64px;align-items:flex-start}
+figure{margin:0;display:flex;flex-direction:column;gap:12px}
+.frame{position:relative;overflow:hidden;background:#141414;border:10px solid #141414;box-shadow:0 12px 32px rgba(15,23,42,.18)}
+.frame iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0}
+figcaption{display:flex;flex-direction:column;gap:2px}
+figcaption b{font-size:16px}
+figcaption span{font-size:13px;color:#4A4D55}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:#DEE0E4;margin:24px 48px 0;max-width:1300px;border:1px solid #DEE0E4}
+.rules div{background:#fff;padding:16px 20px;font-size:13px;color:#4A4D55}
+.rules b{display:block;font-size:14px;color:#141414;margin-bottom:4px}
+</style>
+</head>
+<body>
+<header>
+  <span class="eb">KTEC Materials Twin · responsive and touch layouts</span>
+  <h1>One twin, every screen from 13 in laptop to 40 in kiosk.</h1>
+  <p>Each frame is the live app at that screen's real resolution, scaled down. Everything is interactive: tap, pinch and drag inside a frame. <a href="./" target="_blank">Open full screen</a></p>
+</header>
+<div class="rules">
+  <div><b>Fluid type scale</b>Base size grows with screen width (13 px at 1280 → 25 px at 3840), so panels keep their proportions.</div>
+  <div><b>Touch targets</b>At least 44 px everywhere. Kiosk mode raises this to 56 px and moves modules to a bottom dock within reach.</div>
+  <div><b>Landscape</b>Layers rail left, details drawer right, time strip bottom. Both panels collapse to give the scene the full width.</div>
+  <div><b>Portrait</b>Details become a bottom sheet (peek, half, full). Layers open over the scene. Modules sit in the bottom dock.</div>
+</div>
+<div class="grid" id="grid"></div>
+<script>
+const F=[
+ ['13 in laptop','1280 × 800 · standard touch · network map',1280,800,'screen=network',620],
+ ['15–24 in laptop or monitor','1920 × 1080 · standard · store twin',1920,1080,'screen=store',620],
+ ['27 in monitor','2560 × 1440 · standard · route planner',2560,1440,'screen=routes',620],
+ ['40 in kiosk, landscape','3840 × 2160 · kiosk touch · site twin',3840,2160,'screen=site&mode=kiosk',780],
+ ['40 in kiosk, portrait','2160 × 3840 · kiosk touch · store twin',2160,3840,'screen=store&mode=kiosk',440],
+ ['Shop-floor tablet, landscape','1366 × 1024 · standard · shipments',1366,1024,'screen=shipments',560],
+ ['Shop-floor tablet, portrait','1024 × 1366 · standard · network',1024,1366,'screen=network',400],
+];
+const g=document.getElementById('grid');
+F.forEach(([t,s,w,h,q,dw])=>{
+  const sc=dw/w;
+  g.insertAdjacentHTML('beforeend',`<figure><div class="frame" style="width:${dw+20}px;height:${Math.round(h*sc)+20}px"><iframe loading="lazy" src="./?${q}" style="width:${w}px;height:${h}px;transform:scale(${sc})" title="${t}"></iframe></div><figcaption><b>${t}</b><span>${s}</span></figcaption></figure>`);
+});
+</script>
+</body>
+</html>
