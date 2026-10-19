@@ -156,6 +156,7 @@ function Sources({ site }: { site: string }) {
       <span className="chip">{st.source === 'osm' ? `OpenStreetMap · ${st.buildings} buildings` : 'Stylised campus (OSM unavailable)'}</span>
       <span className="chip">{st.trees} trees</span>
       <span className="chip">{st.imagery === 'ok' ? 'OpenStreetMap ground' : st.imagery === 'loading' ? 'Imagery loading' : 'Imagery unavailable · map ground'}</span>
+      {st.modelled?.length ? <span className="chip">Modelled in Blender · {st.modelled.join(', ')}</span> : null}
       <span className="chip">Blender models · test tower, trucks, trees</span>
     </div>
   );

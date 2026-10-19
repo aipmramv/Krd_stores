@@ -7,7 +7,7 @@ export type Overlay = null | { kind: 'palette'; q: string } | { kind: 'display';
 
 export interface Photo { id: string; title: string; thumb: string; full: string; page: string; credit: string; licence: string; ll: [number, number] | null; source: 'Wikimedia Commons' | 'Mapillary' }
 export type PhotoState = { status: 'loading' } | { status: 'ready'; items: Photo[] } | { status: 'error' };
-export interface SiteStats { buildings: number; trees: number; roads: number; source: 'osm' | 'stylised'; imagery: 'loading' | 'ok' | 'unavailable' }
+export interface SiteStats { buildings: number; trees: number; roads: number; source: 'osm' | 'stylised'; imagery: 'loading' | 'ok' | 'unavailable'; modelled?: string[] }
 
 export interface AppState {
   screen: ScreenId;

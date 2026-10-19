@@ -8,12 +8,12 @@ const QUARANTINE: Facility = { k: 'qua', n: 'Quarantine', s: '2 lots on hold', i
 export const SITES: Site[] = [
   {
     id: 'ktec', name: 'KTEC Chennai', short: 'KTEC Chennai', type: 'R&D centre · Ambattur', kind: 'rnd',
-    address: 'Tower-B, One India Bulls Tech Park, Plot No. 14, 3rd Main Rd, Sai Nagar, Ambattur Industrial Estate, Chennai, Tamil Nadu 600058',
-    ll: [13.0905, 80.1613], ellH: -74, space: 78, value: '₹152 Cr', ship: 37, left: false,
+    address: 'Tower-B, Kosmo One (One India Bulls Tech Park), Plot No. 14, 3rd Main Rd, Sai Nagar, Ambattur Industrial Estate, Chennai, Tamil Nadu 600058',
+    ll: [13.09217, 80.16324], ellH: -74, space: 78, value: '₹152 Cr', ship: 37, left: false,
     facilities: [
       { k: 'main', n: 'Tower-B · KTEC', s: 'Labs, prototype store, engineering', info: 'KTEC labs, prototype and electronics store on the lower floors, engineering above', col: '#A1B9FB', facade: 'glass',
         floors: [['Lower floors · labs and electronics store', '84%'], ['Middle floors · engineering', '61%'], ['Upper floors · offices', '—']], storeFloor: 0 },
-      { k: 'twa', n: 'Tower-A · tech park', s: 'Shared amenities', info: 'Neighbouring tower in One India Bulls Tech Park · shared cafeteria and training rooms', col: '#D2F5FF', facade: 'glass' },
+      { k: 'twa', n: 'Tower-A · tech park', s: 'Shared amenities', info: 'Neighbouring tower in Kosmo One · shared cafeteria and training rooms', col: '#D2F5FF', facade: 'glass' },
       { k: 'park', n: 'Multi-level parking', s: 'Visitor and staff', info: 'Parking and courier drop-off', col: '#F7F8FA', facade: 'concrete' },
       { k: 'stg', n: 'Service yard and receiving', s: '5 inbound today', info: 'Goods receiving for the tech park · 5 inbound today, 2 slots free', col: '#AAE1C8', facade: 'metal' },
       HAZMAT,

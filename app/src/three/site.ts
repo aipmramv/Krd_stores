@@ -120,7 +120,7 @@ async function build(site: Site): Promise<SiteScene> {
   const sky = new SkyRig(sc, 700);
 
   let src: 'osm' | 'stylised' = 'osm';
-  const stats = (p: Partial<{ buildings: number; trees: number; roads: number; imagery: 'loading' | 'ok' | 'unavailable' }>) =>
+  const stats = (p: Partial<{ buildings: number; trees: number; roads: number; imagery: 'loading' | 'ok' | 'unavailable'; modelled: string[] }>) =>
     setState(s => ({ siteStats: { ...s.siteStats, [site.id]: { ...(s.siteStats[site.id] ?? EMPTY_STATS), source: src, ...p } } }));
 
   // ---------- Ground: OpenStreetMap tile rings ----------
@@ -168,15 +168,21 @@ async function build(site: Site): Promise<SiteScene> {
   src = osm && osm.buildings.length >= 5 ? 'osm' : 'stylised';
   const data = src === 'osm' ? osm! : stylised(site);
 
-  // ---------- Facilities: match KONE roles to buildings ----------
-  const blds = data.buildings;
+  // ---------- Facilities: Blender-modelled KONE buildings, then match the rest to OSM ----------
+  // Hand-modelled buildings sit at their own site coordinates and replace the OSM buildings under them.
+  const hero = await loadSiteModels(site.id);
+  const heroBox: Record<string, THREE.Box3> = {};
+  for (const [k, m] of Object.entries(hero)) if (site.facilities.some(f => f.k === k)) heroBox[k] = new THREE.Box3().setFromObject(m);
+  const underHero = (b: OsmBuilding) => Object.values(heroBox).some(bx => b.c[0] > bx.min.x - 4 && b.c[0] < bx.max.x + 4 && -b.c[1] > bx.min.z - 4 && -b.c[1] < bx.max.z + 4);
+  const blds = data.buildings.filter(b => !underHero(b));
+  const heroPolys: Pt[][] = Object.values(heroBox).map(({ min, max }) => [[min.x, -min.z], [max.x, -min.z], [max.x, -max.z], [min.x, -max.z], [min.x, -min.z]]);
   const matched = new Map<OsmBuilding, Facility>();
-  const toMatch = site.facilities.filter(f => !f.modelled);
-  const atSite = blds.find(b => inside([0, 0], b.pts) && b.area > 200);
+  const toMatch = site.facilities.filter(f => !f.modelled && !heroBox[f.k]);
+  const atSite = heroBox.main ? undefined : blds.find(b => inside([0, 0], b.pts) && b.area > 200);
   const cands = blds.filter(b => b.area > 150 && b.d < 360).sort((a, b) => a.d - b.d);
-  const main = atSite ?? cands.slice(0, 6).reduce<OsmBuilding | undefined>((m, b) => (!m || b.area > m.area ? b : m), undefined);
-  if (main) matched.set(main, toMatch[0]);
-  cands.filter(b => b !== main).slice(0, toMatch.length - 1).forEach((b, i) => matched.set(b, toMatch[i + 1]));
+  const main = heroBox.main ? undefined : atSite ?? cands.slice(0, 6).reduce<OsmBuilding | undefined>((m, b) => (!m || b.area > m.area ? b : m), undefined);
+  if (main) matched.set(main, toMatch.shift()!);
+  cands.filter(b => b !== main).slice(0, toMatch.length).forEach((b, i) => matched.set(b, toMatch[i]));
 
   // ---------- Buildings ----------
   const ctxGroup = new THREE.Group(), konGroup = new THREE.Group();
@@ -188,8 +194,27 @@ async function build(site: Site): Promise<SiteScene> {
   const outlineMat = new THREE.LineBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: .9 });
   const footprintRadius = (b: OsmBuilding) => Math.sqrt(b.area / Math.PI);
 
-  // Blender-refined KONE buildings replace their automatic OSM boxes where they exist.
-  const hero = await loadSiteModels(site.id);
+  for (const [k, box] of Object.entries(heroBox)) {
+    const f = site.facilities.find(x => x.k === k)!, model = hero[k];
+    // Floors are the objects named floor_0, floor_1, … so the primary building still peels open.
+    const floors: THREE.Object3D[] = [];
+    model.traverse(o => { const m = /^floor_(\d+)$/.exec(o.name); if (m) floors[+m[1]] = o; });
+    const slabs = f.floors && floors.length ? floors.filter(Boolean) : undefined;
+    model.traverse(o => {
+      if (!(o as THREE.Mesh).isMesh) return;
+      let floor: number | undefined;
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) { const i = slabs?.indexOf(p) ?? -1; if (i >= 0) { floor = i; break; } }
+      o.userData = { k, floor };
+      pickables.push(o);
+    });
+    slabs?.forEach(sl => { sl.userData.base = sl.position.y; });
+    const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+    const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(size.x + .6, size.y + .3, size.z + .6)), outlineMat);
+    outline.position.copy(c);
+    outline.visible = false;
+    konGroup.add(model, outline);
+    meta[k] = { f, k, c: new THREE.Vector3(c.x, 0, c.z), h: box.max.y, size: Math.max(size.x, size.z) / 2, obj: model, slabs, outline };
+  }
   for (const b of blds) {
     const f = matched.get(b);
     if (!f) {
@@ -206,27 +231,11 @@ async function build(site: Site): Promise<SiteScene> {
       }
       continue;
     }
-    let h = f.floors ? Math.max(b.h, 15) : Math.max(b.h, 6);
+    const h = f.floors ? Math.max(b.h, 15) : Math.max(b.h, 6);
     const walls = facadeMaterial(f.facade), roof = roofMaterial(f.col);
     let obj: THREE.Object3D;
     let slabs: THREE.Object3D[] | undefined;
-    const model = hero[f.k];
-    if (model) {
-      obj = model;
-      h = new THREE.Box3().setFromObject(model).max.y || h;
-      // Floors are the objects named floor_0, floor_1, … so the primary building still peels open.
-      const floors: THREE.Object3D[] = [];
-      model.traverse(o => { const m = /^floor_(\d+)$/.exec(o.name); if (m) floors[+m[1]] = o; });
-      if (f.floors && floors.length) slabs = floors.filter(Boolean);
-      model.traverse(o => {
-        if (!(o as THREE.Mesh).isMesh) return;
-        let floor: number | undefined;
-        for (let p: THREE.Object3D | null = o; p; p = p.parent) { const i = slabs?.indexOf(p) ?? -1; if (i >= 0) { floor = i; break; } }
-        o.userData = { k: f.k, floor };
-        pickables.push(o);
-      });
-      slabs?.forEach(sl => { sl.userData.base = sl.position.y; });
-    } else if (f.floors) {
+    if (f.floors) {
       obj = new THREE.Group();
       slabs = [];
       const fh = h / f.floors.length;
@@ -262,7 +271,7 @@ async function build(site: Site): Promise<SiteScene> {
 
   // ---------- Free ground for modelled facilities ----------
   const center = meta.main ? meta.main.c.clone() : new THREE.Vector3();
-  const blocked: Pt[][] = blds.map(b => b.pts);
+  const blocked: Pt[][] = [...blds.map(b => b.pts), ...heroPolys];
   const freeSpot = (half: number, from: number): Pt => {
     for (let r = from; r < from + 260; r += 18) for (let i = 0; i < 20; i++) {
       const a = i / 20 * Math.PI * 2 + r * .01, x = center.x + Math.cos(a) * r, y = -center.z + Math.sin(a) * r;
@@ -336,7 +345,7 @@ async function build(site: Site): Promise<SiteScene> {
     }
   }
   if (src === 'stylised') for (let i = 0; i < 90; i++) { const a = i * 2.3999, r = 140 + (i % 9) * 22; treePts.push([Math.cos(a) * r, Math.sin(a) * r]); }
-  const treeList = treePts.filter(p => Math.hypot(p[0], p[1]) < 1000 && !blds.some(b => inside(p, b.pts))).slice(0, 1500);
+  const treeList = treePts.filter(p => Math.hypot(p[0], p[1]) < 1000 && !blds.some(b => inside(p, b.pts)) && !heroPolys.some(q => inside(p, q))).slice(0, 1500);
   if (treesM) {
     const variants = treeVariants(treesM);
     const mats: THREE.Matrix4[][] = variants.map(() => []);
@@ -411,7 +420,7 @@ async function build(site: Site): Promise<SiteScene> {
 
   const spread = Object.values(meta).reduce((m, x) => Math.max(m, x.c.distanceTo(center) + x.size), 0);
   const radius = THREE.MathUtils.clamp(spread + 60, 180, 520);
-  stats({ buildings: blds.length, trees: treeList.length, roads: data.roads.length });
+  stats({ buildings: blds.length, trees: treeList.length, roads: data.roads.length, modelled: Object.keys(heroBox).map(k => site.facilities.find(f => f.k === k)!.n.split(' · ')[0]) });
 
   const v = new THREE.Vector3(), q = new THREE.Vector3();
   let last = 0;
