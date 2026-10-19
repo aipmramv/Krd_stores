@@ -6,8 +6,13 @@ export interface OsmBuilding { id: number; pts: Pt[]; area: number; c: Pt; h: nu
 export interface OsmWay { pts: Pt[]; kind: string }
 export interface OsmData { buildings: OsmBuilding[]; roads: OsmWay[]; green: Pt[][]; water: Pt[][]; trees: Pt[] }
 
-const ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
-const CACHE_V = 'ktec-twin.osm.v2.';
+const ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.osm.jp/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+];
+const CACHE_V = 'ktec-twin.osm.v3.';
 const R_BLD = 750, R_CTX = 1000;
 
 interface El { type: 'way' | 'node'; id: number; lat?: number; lon?: number; geometry?: { lat: number; lon: number }[]; tags?: Record<string, string> }
@@ -57,8 +62,9 @@ function heightOf(tags: Record<string, string>, area: number, id: number) {
   return area > 2500 ? 10 + r * 8 : 5 + r * 6;
 }
 
-async function query(lat: number, lon: number) {
-  const q = `[out:json][timeout:25];(
+/** The Overpass query for one site. Shared with scripts/fetch-osm.ts, which bundles the answers at deploy time. */
+export function overpassQuery(lat: number, lon: number) {
+  return `[out:json][timeout:90];(
     way["building"](around:${R_BLD},${lat},${lon});
     way["highway"](around:${R_CTX},${lat},${lon});
     way["landuse"~"grass|meadow|forest|recreation_ground|village_green|orchard"](around:${R_CTX},${lat},${lon});
@@ -66,16 +72,32 @@ async function query(lat: number, lon: number) {
     way["natural"~"water|wood|scrub"](around:${R_CTX},${lat},${lon});
     node["natural"="tree"](around:${R_BLD},${lat},${lon});
   );out geom;`;
+}
+
+/** Ask the public Overpass mirrors in turn. They are often busy, so each gets a generous timeout. */
+export async function queryOverpass(lat: number, lon: number, timeoutMs = 30000): Promise<{ elements?: El[] } | null> {
+  const body = 'data=' + encodeURIComponent(overpassQuery(lat, lon));
   for (const ep of ENDPOINTS) {
     try {
-      const ac = new AbortController(), to = setTimeout(() => ac.abort(), 12000);
-      const r = await fetch(ep, { method: 'POST', body: 'data=' + encodeURIComponent(q), signal: ac.signal });
+      const ac = new AbortController(), to = setTimeout(() => ac.abort(), timeoutMs);
+      const r = await fetch(ep, { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ac.signal });
       clearTimeout(to);
       if (!r.ok) continue;
-      return (await r.json()) as { elements?: El[] };
+      const j = (await r.json()) as { elements?: El[] };
+      if (j.elements?.length) return j;
     } catch { /* next mirror */ }
   }
   return null;
+}
+
+/** OSM data bundled with the app at deploy time (public/osm/<site>.json), if present. */
+async function bundled(siteId: string): Promise<{ elements?: El[] } | null> {
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}osm/${siteId}.json`);
+    if (!r.ok) return null;
+    const j = (await r.json()) as { elements?: El[] };
+    return j.elements?.length ? j : null;
+  } catch { return null; }
 }
 
 export async function fetchOsm(siteId: string, lat: number, lon: number): Promise<OsmData | null> {
@@ -83,7 +105,8 @@ export async function fetchOsm(siteId: string, lat: number, lon: number): Promis
     const hit = localStorage.getItem(CACHE_V + siteId);
     if (hit) return JSON.parse(hit) as OsmData;
   } catch { /* storage unavailable */ }
-  const j = await query(lat, lon);
+  // Bundled data first (instant, no dependency on busy public servers), then the live mirrors.
+  const j = (await bundled(siteId)) ?? (await queryOverpass(lat, lon));
   if (!j) return null;
   const xy = projector(lat, lon);
   const out: OsmData = { buildings: [], roads: [], green: [], water: [], trees: [] };
