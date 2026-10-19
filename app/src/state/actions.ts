@@ -1,18 +1,64 @@
+import { SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { Bin, ColorMode, ScreenId } from '../data/types';
-import { globe } from '../globe/globe';
+import { mapEngine } from '../map/mapEngine';
 import { loadPhotos } from '../services/photos';
 import { threeEngine } from '../three/engine';
-import { getState, GLOBE_SCREENS, setState, SITE_SCREENS, stageFor, storeToken, type AppState } from './store';
+import { getState, MAP_SCREENS, setState, stageFor } from './store';
 
-const isSiteScreen = (s: ScreenId) => SITE_SCREENS.includes(s);
+const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
+const isSiteScreen = (s: ScreenId) => s === 'site' || s === 'movements';
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+/** Map opacity cross-fade length; matches the .fade-in / .fade-out CSS. */
+const FADE_MS = 900;
+let busy = false;
 
-/** Switch screen. Map and site screens share the Cesium globe, so moving between them is one camera flight. */
+/** Map → site: fly the map down while the 3D scene builds, then cross-fade into a matching 3D camera. */
+async function flyIntoSite(screen: 'site' | 'movements') {
+  const site = SITE_BY_ID[getState().site];
+  setState({ screen, overlay: null, loading: true });
+  loadPhotos(site.id);
+  busy = true;
+  try {
+    await Promise.all([mapEngine.flyToSite(site.ll), threeEngine.prepare(site.id)]);
+  } finally { busy = false; }
+  if (getState().screen !== screen) { setState({ loading: false }); return; }
+  setState({ stage: 'three', fade: 'out', loading: false });
+  setTimeout(() => setState({ fade: null }), FADE_MS);
+}
+
+/** Site → map: rise to the matching overhead view, cross-fade to the map, then zoom out. */
+async function riseOutOfSite(next: ScreenId) {
+  const site = SITE_BY_ID[getState().site];
+  busy = true;
+  try { await threeEngine.toOverhead(900); } finally { busy = false; }
+  mapEngine.handoffFrom = site.ll;
+  setState({ screen: next, stage: 'map', fade: 'in' });
+  setTimeout(() => setState({ fade: null }), FADE_MS);
+}
+
 export function go(screen: ScreenId) {
   const s = getState();
+  if (busy) return;
   setState({ overlay: null });
+  if (isSiteScreen(screen) && isMap(s.screen) && mapEngine.ready) { void flyIntoSite(screen); return; }
+  if (isMap(screen) && isSiteScreen(s.screen) && s.stage === 'three') { void riseOutOfSite(screen); return; }
   if (isSiteScreen(screen)) loadPhotos(s.site);
   setState({ screen, stage: stageFor(screen) });
+}
+
+/** Switch site from inside the 3D twin: up to the map, across to the new site, and back down. */
+async function travel(id: string) {
+  const s = getState(), from = SITE_BY_ID[s.site], screen = s.screen as 'site' | 'movements';
+  busy = true;
+  try {
+    await threeEngine.toOverhead(800);
+    mapEngine.handoffFrom = from.ll;
+    setState({ stage: 'map', fade: 'in' });
+    await sleep(FADE_MS);
+    setState({ fade: null, site: id, bld: null });
+  } finally { busy = false; }
+  await flyIntoSite(screen);
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -22,19 +68,23 @@ export function toast(msg: string) {
   toastTimer = setTimeout(() => setState({ toast: null }), 3600);
 }
 
-/** Select a site. On a site screen the globe flies straight across to it. */
 export function selectSite(id: string) {
+  const s = getState();
+  if (busy || id === s.site && isSiteScreen(s.screen)) return;
   loadPhotos(id);
+  if (isSiteScreen(s.screen) && s.stage === 'three') { void travel(id); return; }
   setState({ site: id, bld: null });
+  if (isMap(s.screen)) mapEngine.flyTo(SITE_BY_ID[id].ll, 8);
 }
 /** Map pin click: select the site and return to the network view if needed. */
 export function pinSite(id: string) {
   setState({ site: id });
   loadPhotos(id);
   if (getState().screen !== 'network') go('network');
+  else mapEngine.flyTo(SITE_BY_ID[id].ll, 8);
 }
 export const selectRoute = (i: number) => setState({ route: i });
-export function selectShip(i: number) { setState({ ship: i }); globe.fitScreen(); }
+export function selectShip(i: number) { setState({ ship: i }); mapEngine.fitScreen(); }
 export function setMode(mode: ColorMode) { setState({ mode }); threeEngine.recolorBins(); }
 export function toggleLayer(id: string) {
   setState(s => {
@@ -43,34 +93,22 @@ export function toggleLayer(id: string) {
   });
   if (getState().screen === 'store') threeEngine.recolorBins();
 }
-export const setBase = (base: AppState['base']) => setState({ base });
 export const togglePeel = () => setState(s => ({ peel: !s.peel }));
 export const selectBuilding = (k: string) => setState({ bld: k });
-export function focusBuilding(k: string) { selectBuilding(k); globe.focus(k); }
+export function focusBuilding(k: string) { selectBuilding(k); threeEngine.focus(k); }
 export const toggleRail = () => setState(s => ({ railOpen: !s.railOpen }));
 export const toggleDrawer = () => setState(s => ({ drawerOpen: !s.drawerOpen }));
 export const cycleSheet = () => setState(s => ({ sheet: ({ peek: 'half', half: 'full', full: 'peek' } as const)[s.sheet] }));
 export const setTime = (t: number) => setState({ t });
 export const goLive = () => setState({ t: 0, tod: null });
 export const setTimeOfDay = (tod: number | null) => setState({ tod });
-export const toggleMapTilt = () => setState(s => ({ mapTilt: !s.mapTilt }));
 export const toggleTour = () => setState(s => ({ tour: !s.tour }));
-export function togglePhotoreal() {
-  const s = getState();
-  if (!s.cesiumToken) { toast('Add your Cesium ion token in Display to use photorealistic 3D'); return; }
-  setState({ photoreal: !s.photoreal });
-}
-/** Save the Cesium ion token on this device and restart, so every globe layer loads with it. */
-export function setCesiumToken(t: string) {
-  storeToken(t.trim());
-  location.reload();
-}
 export const setKiosk = (on: boolean) => { setState({ kiosk: on, overlay: null }); requestAnimationFrame(() => threeEngine.refreshRadial()); };
 export const openPalette = (q = '') => setState({ overlay: { kind: 'palette', q } });
 export const openDisplayMenu = (r: DOMRect) => setState({ overlay: { kind: 'display', top: r.bottom + 6, right: innerWidth - r.right } });
 export const openPhoto = (site: string, i: number) => setState({ overlay: { kind: 'photo', site, i } });
 export const closeOverlay = () => setState({ overlay: null });
-export function viewPhotoIn3D(site: string, i: number) { closeOverlay(); globe.viewPhoto(site, i); }
+export function viewPhotoIn3D(site: string, i: number) { closeOverlay(); threeEngine.viewPhoto(site, i); }
 
 export function selectBin(b: Bin) { setState({ bin: b }); }
 
@@ -88,19 +126,17 @@ export function completeMove(a: Bin, b: Bin) {
   toast(`Move request MR-26-1184 created · ${binId(a)} → ${binId(b)} · sent to stores for scan confirmation`);
 }
 
-const onGlobe = () => GLOBE_SCREENS.includes(getState().screen);
 export function zoom(d: 1 | -1) {
-  if (onGlobe()) globe.zoomBy(d);
+  if (isMap(getState().screen)) mapEngine.zoomBy(d);
   else threeEngine.zoomBy(d);
 }
 export function resetView() {
-  if (onGlobe()) globe.fitScreen();
-  else threeEngine.enter();
+  if (isMap(getState().screen)) mapEngine.fitScreen();
+  else void threeEngine.enter({ reset: true });
 }
-/** Store: 2D/3D camera. Site screens: straight-down or oblique view (the globe re-frames on change). */
 export function toggleDim() {
   setState(s => ({ dim: s.dim === '3D' ? '2D' : '3D' }));
-  if (!onGlobe()) threeEngine.applyDim();
+  threeEngine.applyDim();
 }
 
 export function escape() {

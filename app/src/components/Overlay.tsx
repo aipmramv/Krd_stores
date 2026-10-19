@@ -1,8 +1,8 @@
 // Command palette (Ctrl K) and the Display / touch-density menu.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { SITE_BY_ID, SITES } from '../data/sites';
 import type { ScreenId } from '../data/types';
-import { closeOverlay, go, openPalette, openPhoto, selectSite, setCesiumToken, setKiosk, viewPhotoIn3D } from '../state/actions';
+import { closeOverlay, go, openPalette, openPhoto, selectSite, setKiosk, viewPhotoIn3D } from '../state/actions';
 import { useApp } from '../state/store';
 
 interface PalItem { title: string; sub: string; hint: string; run: () => void }
@@ -52,28 +52,13 @@ function Palette({ q }: { q: string }) {
   );
 }
 
-const ION_STATUS = {
-  none: 'No token yet: the globe has no imagery, terrain or buildings.',
-  loading: 'Connecting to Cesium ion…',
-  ok: 'Connected: Google Maps, terrain and 3D buildings load through Cesium ion.',
-  error: 'Cesium ion refused some layers: check the token can read Google Maps 2D (asset 3830184) and Google Photorealistic 3D Tiles (asset 2275207), and allows this site URL.',
-};
-
 function DisplayMenu({ top, right }: { top: number; right: number }) {
-  const kiosk = useApp(s => s.kiosk), token = useApp(s => s.cesiumToken), ion = useApp(s => s.ion);
-  const [draft, setDraft] = useState(token);
+  const kiosk = useApp(s => s.kiosk);
   return (
     <div className="menu" style={{ top, right }} role="menu">
       <span className="eb">Touch density</span>
       <button role="menuitemradio" aria-checked={!kiosk} onClick={() => setKiosk(false)}><span>Standard · 13–27 in screens</span>{!kiosk && <b>On</b>}</button>
       <button role="menuitemradio" aria-checked={kiosk} onClick={() => setKiosk(true)}><span>Kiosk touch · 32–55 in screens</span>{kiosk && <b>On</b>}</button>
-      <span className="eb">Maps and 3D · Cesium ion</span>
-      <form className="keyform" onSubmit={e => { e.preventDefault(); setCesiumToken(draft); }}>
-        <label htmlFor="iontoken">Cesium ion access token. Stored only on this device; saving reloads the app.</label>
-        <div><input id="iontoken" type="password" autoComplete="off" value={draft} onChange={e => setDraft(e.target.value)} placeholder="eyJ…" />
-          <button type="submit" className="btn primary">{draft ? 'Save' : 'Clear'}</button></div>
-        <p className={`ionstatus ${ion}`}>{ION_STATUS[ion]}</p>
-      </form>
       <span className="eb">Preview</span>
       <button onClick={() => { closeOverlay(); window.open('layouts.html', '_blank'); }}><span>All screen sizes side by side</span><span>↗</span></button>
     </div>

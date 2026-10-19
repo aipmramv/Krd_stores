@@ -148,16 +148,15 @@ export function ShipmentsDrawer() {
   );
 }
 
-/** What the globe is drawing the site from. */
-function Sources() {
-  const ion = useApp(s => s.ion), photoreal = useApp(s => s.photoreal);
-  if (ion === 'none') return <p className="note">Add your Cesium ion token under Display to load imagery, terrain and 3D buildings.</p>;
+function Sources({ site }: { site: string }) {
+  const st = useApp(s => s.siteStats[site]);
+  if (!st) return <p className="note">Loading OpenStreetMap buildings and satellite imagery…</p>;
   return (
     <div className="srcs">
-      <span className={`chip ${photoreal ? 'dark' : ''}`}>{photoreal ? 'Google Photorealistic 3D Tiles' : 'Cesium OSM Buildings'}</span>
-      <span className="chip">Cesium World Terrain</span>
-      <span className="chip">Cesium ion imagery</span>
-      {ion === 'error' && <span className="chip" style={{ background: '#FFCDD7' }}>Some ion layers refused · see Display</span>}
+      <span className="chip">{st.source === 'osm' ? `OpenStreetMap · ${st.buildings} buildings` : 'Stylised campus (OSM unavailable)'}</span>
+      <span className="chip">{st.trees} trees</span>
+      <span className="chip">{st.imagery === 'ok' ? 'OpenStreetMap ground' : st.imagery === 'loading' ? 'Imagery loading' : 'Imagery unavailable · map ground'}</span>
+      <span className="chip">Blender models · test tower, trucks, trees</span>
     </div>
   );
 }
@@ -174,7 +173,7 @@ export function SiteDrawer() {
         <span className="eb">{f ? 'Facility' : site.type}</span><h2>{f ? f.n : site.name}</h2>
         <p className={f ? '' : 'addr'}>{f ? f.info : site.address}</p>
       </div>
-      {!f && <Sources />}
+      {!f && <Sources site={id} />}
       {(!f || f.floors) && main.floors && <>
         <Eb>{`Floors · ${main.n}`}</Eb>
         <div className="rows">
@@ -195,7 +194,6 @@ export function SiteDrawer() {
         </div>
       )}
       <Eb>Facilities</Eb>
-      <p className="note">Label positions are approximate until surveyed coordinates are added in data/sites.ts.</p>
       <div className="rows">
         {site.facilities.map(x => (
           <button key={x.k} className={`rowbtn ${x.k === b ? 'sel' : ''}`} onClick={() => focusBuilding(x.k)}>

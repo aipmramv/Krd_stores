@@ -10,14 +10,12 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "cesium": "^1.146.0",
-    "earcut": "^3.0.2",
+    "maplibre-gl": "^5.24.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "0.184.0"
   },
   "devDependencies": {
-    "@types/node": "^22.20.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/three": "0.184.0",

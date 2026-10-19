@@ -4,56 +4,53 @@ React + TypeScript + Vite build of the Claude Design handoff `project/Materials 
 a digital twin of KONE material flows across the four key KONE sites in India:
 KTEC Chennai (Ambattur), KTEC Pune (Aundh), KONE ISU & Test Tower (Sriperumbudur) and the KONE – DHL warehouse (Oragadam).
 
-All maps and 3D sites are drawn with **CesiumJS** and **Cesium ion**, using one token.
+**Map data is OpenStreetMap only:** the map uses OpenStreetMap standard tiles, and the 3D site twins are
+built in three.js from OpenStreetMap buildings, roads, trees and parks, plus Blender-modelled assets.
+No API keys or tokens are needed.
 
 ```sh
 npm install
 npm run dev        # http://localhost:5173
-npm run build      # typecheck + static build in dist/ (Cesium runtime assets copied to dist/cesium)
+npm run build      # typecheck + static build in dist/
 npm run preview
 ```
 
-## Cesium ion token
-
-Everything geographic comes through Cesium ion: Google Maps 2D base maps (ion asset 3830184), Cesium World Terrain, Cesium OSM Buildings,
-and Google Photorealistic 3D Tiles (ion asset 2275207). Without a token the globe has none of these.
-
-- Enter the token in the app under **Display** (stored on that device only), or
-- set `VITE_CESIUM_ION_TOKEN` (`app/.env.local` for local builds, or the `CESIUM_ION_TOKEN` repository secret for Pages).
-
-In Cesium ion, the token must be able to read asset 2275207: add **Google Photorealistic 3D Tiles** to My Assets from
-the Asset Depot, and **Google Maps 2D** (asset 3830184) for the Google base map. Restrict its allowed URLs to where the app is hosted. The token ends up in the public site.
-The free Community plan is for non-commercial use; production use needs a paid ion plan, and Google's terms apply
-to the photorealistic tiles.
-
 URL parameters: `?screen=network|routes|site|store|shipments|movements|reports|mobile`, `&site=ktec|pnq|isu|dhl` and `&mode=kiosk`.
-`VITE_MAPILLARY_TOKEN` adds Mapillary street-level photos next to Wikimedia Commons photos.
+`VITE_MAPILLARY_TOKEN` (optional) adds Mapillary street-level photos next to Wikimedia Commons photos.
 
 ## Modules
 
 | Key | Module | Surface |
 | --- | --- | --- |
-| 1 | Network: sites, transfers, shipments in transit | Cesium globe |
-| 2 | Routes: road / air / rail / split options Chennai → Pune | Cesium globe |
-| 3 | Site twin: Google Photorealistic 3D Tiles (or Cesium OSM Buildings), facilities, photos, real sun | Cesium globe |
+| 1 | Network: sites, transfers, shipments in transit | OpenStreetMap map (MapLibre) |
+| 2 | Routes: road / air / rail / split options Chennai → Pune | OpenStreetMap map |
+| 3 | Site twin: real OSM buildings from lat/long, physical sun and sky, primary building peels open by floor | three.js |
 | 4 | Store twin: racks and bins, colour by occupancy / ageing / project / hazard, radial bin menu, move by tap | three.js |
-| 5 | Shipments: carriers, milestones, exceptions | Cesium globe |
-| 6 | Moves & scrap: internal flows between facilities, scrap approval | Cesium globe |
+| 5 | Shipments: carriers, milestones, exceptions | OpenStreetMap map |
+| 6 | Moves & scrap: internal flows, scrap approval | three.js |
 | 7 | Reports & masters: parts master grid | page |
 | 8 | Mobile companion preview | page |
 
 Ctrl K opens search, 1–8 switch module, Esc closes overlays or cancels a move.
-Moving between map screens and sites is one continuous Cesium camera flight. The **3D** button tilts the map,
-and the time-of-day slider moves the sun.
+
+## Map to site
+
+Entering a site, the map flies down to the site at the scale where one map pixel equals one 3D ground pixel,
+while the 3D scene builds on the same OpenStreetMap tiles. The 3D camera starts exactly overhead, the map
+cross-fades away and the camera tilts down into the site. Leaving reverses this.
+
+## OpenStreetMap data
+
+- Map and 3D ground: `tile.openstreetmap.org` standard tiles. They're fine for a pilot. For production or kiosk
+  traffic, use a dedicated OSM tile host or self-hosted tiles, per the OSM tile usage policy.
+- Buildings, roads, trees, parks and water: the Overpass API. `scripts/fetch-osm.ts` runs in the Pages deploy and
+  bundles each site's data into `public/osm/`, so the app doesn't depend on busy public Overpass servers.
+  The live mirrors are the fallback.
 
 ## Structure
 
-- `src/data/` — the four key sites with facilities, approximate facility positions and flows (`sites.ts`), sample business data (`sample.ts`) and the store model. Typed in `types.ts`.
-- `src/globe/globe.ts` — the Cesium globe: ion layers, camera flights, HTML overlays (pins, lanes, tags, facility labels, photo pins) placed clear of the panels.
-- `src/three/` — the store interior (`engine.ts`, `store3d.ts`) and its DOM labels (`labels.ts`).
-- `src/services/photos.ts` — site photos from Wikimedia Commons and Mapillary.
-- `src/state/` — a small external store (`store.ts`, read in components with `useApp`) and all user actions (`actions.ts`).
-- `src/components/` — top bar, stage chrome (rail, crumbs, controls, timeline), drawer per screen, pages, overlays.
-- `public/models/test_tower.glb` — the KONE test tower, built in Blender by `../blender/build_assets.py`. It shows at ISU when the photorealistic tiles are off.
-
-Facility positions in `sites.ts` are offsets in metres from each site coordinate and are approximate. Replace them with surveyed positions.
+- `src/data/` — the four key sites with facilities and flows (`sites.ts`), sample business data (`sample.ts`) and the store model.
+- `src/map/mapEngine.ts` — the OpenStreetMap map (MapLibre GL, raster OSM tiles).
+- `src/three/` — site scene from OSM (`site.ts`), sun and sky (`sky.ts`), procedural facades (`textures.ts`), Blender models (`models.ts`), the store (`store3d.ts`), the renderer and handoff (`engine.ts`) and DOM labels (`labels.ts`).
+- `src/services/` — OSM data (`osm.ts`) and site photos (`photos.ts`).
+- `public/models/` — glTF assets built in Blender by `../blender/build_assets.py`.

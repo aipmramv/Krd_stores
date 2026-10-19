@@ -1,7 +1,7 @@
 // Responsive layout: classes on <html> drive the CSS scale and panel arrangement
 // from a 13 in laptop up to a 40 in kiosk, in landscape and portrait.
 import { useLayoutEffect } from 'react';
-import { globe } from './globe/globe';
+import { mapEngine } from './map/mapEngine';
 import { useApp } from './state/store';
 
 export function useLayout() {
@@ -22,9 +22,9 @@ export function useLayout() {
       H.classList.toggle('sheet-full', portrait && sheet === 'full');
       H.classList.toggle('rail-closed', !railOpen);
       H.classList.toggle('drawer-closed', !drawerOpen);
-      // Panels animate for .24s; let the globe re-measure once they settle.
+      // Panels animate for .24s; let the map re-measure once they settle.
       clearTimeout(t);
-      t = setTimeout(() => globe.resize(), 260);
+      t = setTimeout(() => mapEngine.invalidate(), 260);
     };
     apply();
     addEventListener('resize', apply);
