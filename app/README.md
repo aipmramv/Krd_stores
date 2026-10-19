@@ -15,14 +15,14 @@ npm run preview
 
 ## Cesium ion token
 
-Everything geographic comes through Cesium ion: imagery, Cesium World Terrain, Cesium OSM Buildings,
+Everything geographic comes through Cesium ion: Google Maps 2D base maps (ion asset 3830184), Cesium World Terrain, Cesium OSM Buildings,
 and Google Photorealistic 3D Tiles (ion asset 2275207). Without a token the globe has none of these.
 
 - Enter the token in the app under **Display** (stored on that device only), or
 - set `VITE_CESIUM_ION_TOKEN` (`app/.env.local` for local builds, or the `CESIUM_ION_TOKEN` repository secret for Pages).
 
 In Cesium ion, the token must be able to read asset 2275207: add **Google Photorealistic 3D Tiles** to My Assets from
-the Asset Depot. Restrict its allowed URLs to where the app is hosted. The token ends up in the public site.
+the Asset Depot, and **Google Maps 2D** (asset 3830184) for the Google base map. Restrict its allowed URLs to where the app is hosted. The token ends up in the public site.
 The free Community plan is for non-commercial use; production use needs a paid ion plan, and Google's terms apply
 to the photorealistic tiles.
 

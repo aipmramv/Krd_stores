@@ -53,8 +53,9 @@ export function Rail({ hidden }: { hidden: boolean }) {
           {MAP_SCREENS.includes(scr) && <>
             <div className="sec"><span className="eb ink">Base map</span></div>
             <div className="seg">
-              <button className={s.base === 'sat' ? 'on' : ''} onClick={() => setBase('sat')}>Satellite</button>
-              <button className={s.base === 'roads' ? 'on' : ''} onClick={() => setBase('roads')}>Roads</button>
+              {([['sat', 'Satellite'], ['roads', 'Map'], ['terrain', 'Terrain']] as const).map(([b, l]) => (
+                <button key={b} className={s.base === b ? 'on' : ''} onClick={() => setBase(b)}>{l}</button>
+              ))}
             </div>
           </>}
           <div className="sec"><span className="eb ink">Layers</span></div>

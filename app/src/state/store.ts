@@ -30,7 +30,8 @@ export interface AppState {
   sheet: 'peek' | 'half' | 'full';
   railOpen: boolean;
   drawerOpen: boolean;
-  base: 'sat' | 'roads';
+  /** Google Maps base: satellite with roads and labels, road map, or terrain. */
+  base: 'sat' | 'roads' | 'terrain';
   toast: { msg: string; n: number } | null;
   overlay: Overlay;
   loading: boolean;

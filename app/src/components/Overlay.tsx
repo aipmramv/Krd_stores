@@ -55,8 +55,8 @@ function Palette({ q }: { q: string }) {
 const ION_STATUS = {
   none: 'No token yet: the globe has no imagery, terrain or buildings.',
   loading: 'Connecting to Cesium ion…',
-  ok: 'Connected: imagery, terrain and 3D buildings load through Cesium ion.',
-  error: 'Cesium ion refused some layers: check the token can read Google Photorealistic 3D Tiles (asset 2275207) and allows this site URL.',
+  ok: 'Connected: Google Maps, terrain and 3D buildings load through Cesium ion.',
+  error: 'Cesium ion refused some layers: check the token can read Google Maps 2D (asset 3830184) and Google Photorealistic 3D Tiles (asset 2275207), and allows this site URL.',
 };
 
 function DisplayMenu({ top, right }: { top: number; right: number }) {

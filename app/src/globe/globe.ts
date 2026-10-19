@@ -36,9 +36,14 @@ export function bez(a: LatLng, b: LatLng, k = .18, n = 48): LatLng[] {
   return out;
 }
 
-/** Cesium ion world imagery: aerial with labels, or road map. */
-const worldImagery = (b: AppState['base']) => Cesium.ImageryLayer.fromProviderAsync(
-  Cesium.createWorldImageryAsync({ style: b === 'sat' ? Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS : Cesium.IonWorldImageryStyle.ROAD }));
+/** Cesium ion's Google Maps 2D tiles (satellite, roadmap, terrain and overlays). */
+const GOOGLE_2D_ASSET = '3830184';
+const google2D = (o: { mapType?: 'satellite' | 'terrain' | 'roadmap'; overlayLayerType?: 'layerRoadmap' }) =>
+  // Cast: Cesium's typings declare getTileCredits as possibly undefined on this provider only.
+  Cesium.Google2DImageryProvider.fromIonAssetId({ assetId: GOOGLE_2D_ASSET, language: 'en-IN', region: 'IN', ...o }) as unknown as Promise<Cesium.ImageryProvider>;
+/** Cesium ion's own world imagery, used if the Google Maps 2D asset is not available to the token. */
+const ionImagery = (b: AppState['base']) =>
+  Cesium.createWorldImageryAsync({ style: b === 'roads' ? Cesium.IonWorldImageryStyle.ROAD : Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS });
 const cart = ([la, lo]: LatLng, h = 0) => Cesium.Cartesian3.fromDegrees(lo, la, h);
 /** Facility position: its approximate offset from the site coordinate, in metres east/north. */
 export function facilityLL(site: Site, f: Facility): LatLng {
@@ -86,7 +91,7 @@ class GlobeEngine {
       animation: false, timeline: false, baseLayerPicker: false, geocoder: false, homeButton: false, infoBox: false,
       selectionIndicator: false, navigationHelpButton: false, sceneModePicker: false, fullscreenButton: false,
       creditContainer: credits, shouldAnimate: false,
-      baseLayer: token ? worldImagery('sat') : false,
+      baseLayer: false,
       terrain: token ? Cesium.Terrain.fromWorldTerrain() : undefined,
     });
     const scene = v.scene;
@@ -98,7 +103,7 @@ class GlobeEngine {
     v.camera.setView({ destination: Cesium.Rectangle.fromDegrees(NETWORK_BOUNDS[0][1], NETWORK_BOUNDS[0][0], NETWORK_BOUNDS[1][1], NETWORK_BOUNDS[1][0]) });
     // Any manual camera move ends a cinematic tour.
     v.screenSpaceEventHandler.setInputAction(() => { if (getState().tour) setState({ tour: false }); }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
-    if (token) this.loadIon(); else setState({ ion: 'none' });
+    if (token) { this.applyBase(getState().base); this.loadIon(); } else setState({ ion: 'none' });
     this.drawSites(); this.drawXfers(); this.drawShips(); this.drawRoutes(); this.drawSite();
     scene.preRender.addEventListener(() => this.preRender());
     scene.postRender.addEventListener(() => this.placeOverlays());
@@ -117,7 +122,6 @@ class GlobeEngine {
       toast(`Cesium ion: ${what} could not load · check the token's asset access and allowed URLs`);
     };
     v.scene.globe.tileLoadProgressEvent.addEventListener(() => { if (getState().ion === 'loading') setState({ ion: 'ok' }); });
-    v.imageryLayers.get(0)?.errorEvent.addEventListener(e => fail('imagery', e));
     try {
       this.osm = await Cesium.createOsmBuildingsAsync();
       this.osm.show = false;
@@ -130,12 +134,31 @@ class GlobeEngine {
     } catch (e) { fail('Google Photorealistic 3D Tiles (ion asset 2275207)', e); }
   }
 
-  private applyBase(b: AppState['base']) {
+  /**
+   * Base map. Google Maps through Cesium ion: satellite with Google's roads and labels on top
+   * (the default), the Google road map, or Google terrain. Falls back to ion imagery if the
+   * token cannot read the Google Maps 2D asset.
+   */
+  private baseReq = 0;
+  private async applyBase(b: AppState['base']) {
     const v = this.viewer;
     if (!v || !getState().cesiumToken) return;
+    const req = ++this.baseReq;
+    const layers: Cesium.ImageryProvider[] = [];
+    try {
+      if (b === 'sat') layers.push(await google2D({ mapType: 'satellite' }), await google2D({ overlayLayerType: 'layerRoadmap' }));
+      else layers.push(await google2D({ mapType: b === 'roads' ? 'roadmap' : 'terrain' }));
+    } catch (e) {
+      console.error('Google Maps 2D', e);
+      if (!this.warned2D) { this.warned2D = true; toast('Google Maps base map unavailable · add "Google Maps 2D" (asset 3830184) to your Cesium ion assets · showing ion imagery'); }
+      layers.length = 0;
+      try { layers.push(await ionImagery(b)); } catch (e2) { console.error('ion imagery', e2); setState({ ion: 'error' }); }
+    }
+    if (req !== this.baseReq) return; // a newer choice won
     v.imageryLayers.removeAll();
-    v.imageryLayers.add(worldImagery(b));
+    layers.forEach(p => v.imageryLayers.addImageryProvider(p));
   }
+  private warned2D = false;
 
   /** The sun follows the timeline date and the time-of-day slider (IST). */
   private applyClock() {
