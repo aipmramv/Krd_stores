@@ -54,3 +54,23 @@ export function treeVariants(trees: THREE.Group): THREE.Object3D[] {
     return holder;
   });
 }
+
+/**
+ * Hand-refined KONE buildings from the Blender site pipeline (blender/site_from_osm.py), keyed by
+ * facility. They are modelled in site-local metres around the site coordinate, so each one sits at
+ * the scene origin as exported. Sites without models resolve to {}.
+ */
+let manifest: Promise<Record<string, Record<string, string>>> | null = null;
+export async function loadSiteModels(siteId: string): Promise<Record<string, THREE.Group>> {
+  manifest ??= fetch(`${import.meta.env.BASE_URL}models/sites/manifest.json`).then(r => (r.ok ? r.json() : {})).catch(() => ({}));
+  const files = (await manifest)[siteId] ?? {};
+  const out: Record<string, THREE.Group> = {};
+  await Promise.all(Object.entries(files).map(async ([k, file]) => {
+    try {
+      const g = await loader.loadAsync(`${import.meta.env.BASE_URL}models/sites/${file}`);
+      g.scene.traverse(o => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      out[k] = g.scene;
+    } catch { /* keep the automatic building */ }
+  }));
+  return out;
+}

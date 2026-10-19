@@ -9,7 +9,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Facility, Site } from '../data/types';
 import { fetchOsm, inside, polyStats, projector, type OsmBuilding, type OsmData, type Pt } from '../services/osm';
 import { getState, isOn, setState } from '../state/store';
-import { instance, loadModel, placeModel, treeVariants } from './models';
+import { instance, loadModel, loadSiteModels, placeModel, treeVariants } from './models';
 import { SkyRig } from './sky';
 import { allFacades, facadeMaterial, roofMaterial } from './textures';
 
@@ -22,7 +22,7 @@ export interface FacilityMeta {
   /** Footprint radius, for camera framing. */
   size: number;
   obj: THREE.Object3D;
-  slabs?: THREE.Mesh[];
+  slabs?: THREE.Object3D[];
   outline?: THREE.LineSegments;
 }
 export interface Flow { curve: THREE.QuadraticBezierCurve3; ball: THREE.Mesh; off: number; label: string; col: string; layer: string; mid: THREE.Vector3 }
@@ -188,6 +188,8 @@ async function build(site: Site): Promise<SiteScene> {
   const outlineMat = new THREE.LineBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: .9 });
   const footprintRadius = (b: OsmBuilding) => Math.sqrt(b.area / Math.PI);
 
+  // Blender-refined KONE buildings replace their automatic OSM boxes where they exist.
+  const hero = await loadSiteModels(site.id);
   for (const b of blds) {
     const f = matched.get(b);
     if (!f) {
@@ -204,11 +206,27 @@ async function build(site: Site): Promise<SiteScene> {
       }
       continue;
     }
-    const h = f.floors ? Math.max(b.h, 15) : Math.max(b.h, 6);
+    let h = f.floors ? Math.max(b.h, 15) : Math.max(b.h, 6);
     const walls = facadeMaterial(f.facade), roof = roofMaterial(f.col);
     let obj: THREE.Object3D;
-    let slabs: THREE.Mesh[] | undefined;
-    if (f.floors) {
+    let slabs: THREE.Object3D[] | undefined;
+    const model = hero[f.k];
+    if (model) {
+      obj = model;
+      h = new THREE.Box3().setFromObject(model).max.y || h;
+      // Floors are the objects named floor_0, floor_1, … so the primary building still peels open.
+      const floors: THREE.Object3D[] = [];
+      model.traverse(o => { const m = /^floor_(\d+)$/.exec(o.name); if (m) floors[+m[1]] = o; });
+      if (f.floors && floors.length) slabs = floors.filter(Boolean);
+      model.traverse(o => {
+        if (!(o as THREE.Mesh).isMesh) return;
+        let floor: number | undefined;
+        for (let p: THREE.Object3D | null = o; p; p = p.parent) { const i = slabs?.indexOf(p) ?? -1; if (i >= 0) { floor = i; break; } }
+        o.userData = { k: f.k, floor };
+        pickables.push(o);
+      });
+      slabs?.forEach(sl => { sl.userData.base = sl.position.y; });
+    } else if (f.floors) {
       obj = new THREE.Group();
       slabs = [];
       const fh = h / f.floors.length;

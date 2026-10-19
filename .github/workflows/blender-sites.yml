@@ -1,0 +1,54 @@
+name: Blender site models
+
+# 1. Run manually ("Run workflow") to build blender/sites/<site>.blend from real OpenStreetMap data.
+#    Download the "blender-sites" artifact, refine the KONE buildings in Blender (keep object names,
+#    put facade photos on the "<key> facade" materials) and commit the .blend to blender/sites/.
+# 2. Every push that changes blender/sites/*.blend exports the KONE buildings to
+#    app/public/models/sites/ and commits them; the Pages deploy then publishes them.
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: Site to build (ktec, isu, dhl, pnq or all)
+        default: all
+  push:
+    branches: [main]
+    paths: ['blender/sites/*.blend']
+
+permissions:
+  contents: write
+
+jobs:
+  blender:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Blender as a Python module
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q libxrender1 libxi6 libxkbcommon0 libsm6 libgl1
+          pip install -q bpy==5.2.2
+      - name: Build site files from OpenStreetMap
+        if: github.event_name == 'workflow_dispatch'
+        run: python blender/site_from_osm.py --site "${{ inputs.site }}"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: blender-sites
+          path: |
+            blender/sites/*.blend
+            app/public/models/sites/
+      - name: Export refined KONE buildings
+        if: github.event_name == 'push'
+        run: |
+          for f in blender/sites/*.blend; do python blender/site_from_osm.py --site "$(basename "$f" .blend)" --export; done
+      - name: Commit exported models
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/public/models/sites
+          git diff --cached --quiet || git commit -m "Export refined KONE building models from Blender"
+          git push

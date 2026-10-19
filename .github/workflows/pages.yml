@@ -3,6 +3,10 @@ name: Deploy app to GitHub Pages
 on:
   push:
     branches: [main]
+  # Pushes made by the Blender workflow don't trigger this one, so also deploy after it finishes.
+  workflow_run:
+    workflows: ['Blender site models']
+    types: [completed]
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,214 @@
+[
+  {
+    "id": "ktec",
+    "name": "KTEC Chennai",
+    "kind": "rnd",
+    "ll": [
+      13.0905,
+      80.1613
+    ],
+    "facilities": [
+      {
+        "k": "main",
+        "n": "Tower-B · KTEC",
+        "facade": "glass",
+        "col": "#A1B9FB",
+        "floors": 3,
+        "modelled": null
+      },
+      {
+        "k": "twa",
+        "n": "Tower-A · tech park",
+        "facade": "glass",
+        "col": "#D2F5FF",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "park",
+        "n": "Multi-level parking",
+        "facade": "concrete",
+        "col": "#F7F8FA",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "stg",
+        "n": "Service yard and receiving",
+        "facade": "metal",
+        "col": "#AAE1C8",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "haz",
+        "n": "Hazmat store",
+        "facade": "concrete",
+        "col": "#FFCDD7",
+        "floors": 0,
+        "modelled": null
+      }
+    ]
+  },
+  {
+    "id": "isu",
+    "name": "KONE ISU & Test Tower",
+    "kind": "factory",
+    "ll": [
+      12.9868,
+      79.9922
+    ],
+    "facilities": [
+      {
+        "k": "main",
+        "n": "ISU production hall",
+        "facade": "metal",
+        "col": "#A1B9FB",
+        "floors": 3,
+        "modelled": null
+      },
+      {
+        "k": "tow",
+        "n": "KONE test tower",
+        "facade": "concrete",
+        "col": "#1450F5",
+        "floors": 0,
+        "modelled": "test_tower"
+      },
+      {
+        "k": "wh",
+        "n": "Component warehouse",
+        "facade": "metal",
+        "col": "#D2F5FF",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "adm",
+        "n": "Admin and training",
+        "facade": "glass",
+        "col": "#F7F8FA",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "stg",
+        "n": "Dispatch docks",
+        "facade": "metal",
+        "col": "#AAE1C8",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "haz",
+        "n": "Hazmat store",
+        "facade": "concrete",
+        "col": "#FFCDD7",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "qua",
+        "n": "Quarantine",
+        "facade": "metal",
+        "col": "#FFE141",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "scr",
+        "n": "Scrap yard",
+        "facade": "concrete",
+        "col": "#F3EEEA",
+        "floors": 0,
+        "modelled": "yard"
+      }
+    ]
+  },
+  {
+    "id": "dhl",
+    "name": "KONE – DHL Warehouse",
+    "kind": "warehouse",
+    "ll": [
+      12.8105,
+      79.9575
+    ],
+    "facilities": [
+      {
+        "k": "main",
+        "n": "DHL KONE distribution centre",
+        "facade": "metal",
+        "col": "#A1B9FB",
+        "floors": 3,
+        "modelled": null
+      },
+      {
+        "k": "dc2",
+        "n": "IndoSpace building 2",
+        "facade": "metal",
+        "col": "#D2F5FF",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "stg",
+        "n": "Gate and security",
+        "facade": "concrete",
+        "col": "#AAE1C8",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "qua",
+        "n": "Quarantine",
+        "facade": "metal",
+        "col": "#FFE141",
+        "floors": 0,
+        "modelled": null
+      }
+    ]
+  },
+  {
+    "id": "pnq",
+    "name": "KTEC Pune",
+    "kind": "rnd",
+    "ll": [
+      18.5631,
+      73.8078
+    ],
+    "facilities": [
+      {
+        "k": "main",
+        "n": "Westend Icon · KTEC",
+        "facade": "glass",
+        "col": "#A1B9FB",
+        "floors": 3,
+        "modelled": null
+      },
+      {
+        "k": "mall",
+        "n": "Westend Mall",
+        "facade": "glass",
+        "col": "#F7F8FA",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "stg",
+        "n": "Service yard and receiving",
+        "facade": "concrete",
+        "col": "#AAE1C8",
+        "floors": 0,
+        "modelled": null
+      },
+      {
+        "k": "park",
+        "n": "Parking structure",
+        "facade": "concrete",
+        "col": "#F3EEEA",
+        "floors": 0,
+        "modelled": null
+      }
+    ]
+  }
+]
