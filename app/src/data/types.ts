@@ -4,17 +4,50 @@ export type ThreeScreen = 'site' | 'movements' | 'store';
 export type ColorMode = 'occupancy' | 'ageing' | 'project' | 'hazard';
 export type LatLng = [number, number];
 
+export type SiteKind = 'rnd' | 'factory' | 'warehouse';
+export type Facade = 'glass' | 'metal' | 'concrete';
+
+/** A KONE facility on a site. Facilities are matched to the nearest large OSM buildings. */
+export interface Facility {
+  k: string;
+  /** Label name. */
+  n: string;
+  /** Label status line. */
+  s: string;
+  /** Longer description for the drawer. */
+  info: string;
+  /** Roof / highlight colour. */
+  col: string;
+  facade: Facade;
+  alert?: boolean;
+  /** The facility's floors bottom to top; only the primary facility has them and peels open. */
+  floors?: [name: string, space: string][];
+  /** Index of the floor holding the electronics store. */
+  storeFloor?: number;
+  /** Placed by the app instead of matched to OSM: a Blender model or an open yard. */
+  modelled?: 'test_tower' | 'yard';
+}
+
 export interface Site {
   id: string;
   name: string;
+  /** Short name for crumbs and map labels. */
+  short: string;
   type: string;
+  kind: SiteKind;
+  address: string;
   ll: LatLng;
   space: number;
   value: string;
   ship: number;
-  alerts: number;
   /** Where the callout sits relative to the pin: right (false), left (true) or below ('b'). */
   left: boolean | 'b';
+  /** First facility is the primary building (floors, store twin entry). */
+  facilities: Facility[];
+  /** Internal flows: [from, to, colour, label, layer]. */
+  flows: [string, string, string, string, 'flows' | 'scrapf'][];
+  /** [title, detail, colour]. */
+  alerts: [string, string, string][];
 }
 
 export interface RouteOption {

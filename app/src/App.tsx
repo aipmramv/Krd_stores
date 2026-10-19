@@ -8,7 +8,7 @@ import { ModuleTabs, TopBar } from './components/TopBar';
 import { MODULES } from './data/sample';
 import { mapEngine } from './map/mapEngine';
 import { escape, go, openPalette } from './state/actions';
-import { getState, MAP_SCREENS, useApp } from './state/store';
+import { getState, useApp } from './state/store';
 import { threeEngine } from './three/engine';
 import { useLayout } from './useLayout';
 
@@ -28,33 +28,34 @@ function useKeyboard() {
 }
 
 export function App() {
-  const screen = useApp(s => s.screen), stage = useApp(s => s.stage);
+  const screen = useApp(s => s.screen), stage = useApp(s => s.stage), fade = useApp(s => s.fade);
   const mapRef = useRef<HTMLDivElement>(null), threeRef = useRef<HTMLDivElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null), radialRef = useRef<HTMLDivElement>(null);
   useLayout();
   useKeyboard();
 
-  useEffect(() => { mapEngine.init(mapRef.current!); }, []);
+  useEffect(() => {
+    mapEngine.init(mapRef.current!);
+    threeEngine.init(threeRef.current!, labelsRef.current!, radialRef.current!);
+  }, []);
 
   // Drive the imperative engines once the visible surface has been committed to the DOM.
   useEffect(() => {
-    if (stage === 'three') {
-      threeEngine.init(threeRef.current!, labelsRef.current!, radialRef.current!);
-      threeEngine.enter();
-      return;
-    }
-    threeEngine.leave();
-    if (stage === 'map' && MAP_SCREENS.includes(screen)) mapEngine.show(screen);
+    if (stage === 'three') { void threeEngine.enter({ handoff: getState().fade === 'out' }); return; }
+    if (getState().fade !== 'in') threeEngine.leave();
+    if (stage === 'map') mapEngine.show(screen);
   }, [screen, stage]);
+  useEffect(() => { if (stage === 'map' && !fade) threeEngine.leave(); }, [stage, fade]);
 
   const isPage = stage === 'page';
   return (
     <div id="app">
       <TopBar />
       <main id="stage">
-        <div id="map" ref={mapRef} className={`view${stage === 'map' ? '' : ' hidden'}`} />
-        <div id="three" ref={threeRef} className={`view${stage === 'three' ? '' : ' hidden'}`} />
-        <div id="labels" ref={labelsRef} className={stage === 'three' ? '' : 'hidden'} />
+        {/* During the map ↔ 3D handoff both surfaces are shown and the map cross-fades above the 3D view. */}
+        <div id="three" ref={threeRef} className={`view${stage === 'three' || fade === 'in' ? '' : ' hidden'}`} />
+        <div id="map" ref={mapRef} className={`view${stage === 'map' || fade === 'out' ? '' : ' hidden'}${fade ? ' fade-' + fade : ''}`} />
+        <div id="labels" ref={labelsRef} className={stage === 'three' && !fade ? '' : 'hidden'} />
         <div id="radial" ref={radialRef} className="hidden" />
         <Loading />
         <MoveBanner />

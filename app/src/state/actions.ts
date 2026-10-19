@@ -1,42 +1,87 @@
-import { SITE_BY_ID } from '../data/sample';
+import { SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { Bin, ColorMode, ScreenId } from '../data/types';
 import { mapEngine } from '../map/mapEngine';
+import { loadPhotos, reloadPhotos } from '../services/photos';
 import { threeEngine } from '../three/engine';
-import { getState, MAP_SCREENS, setState, stageFor, type AppState } from './store';
+import { getState, MAP_SCREENS, setState, stageFor, storeKey, type AppState } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
+const isSiteScreen = (s: ScreenId) => s === 'site' || s === 'movements';
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+/** Map opacity cross-fade length; matches the .fade-in / .fade-out CSS. */
+const FADE_MS = 900;
+let busy = false;
+
+/** Map → site: fly the map down while the 3D scene builds, then cross-fade into a matching 3D camera. */
+async function flyIntoSite(screen: 'site' | 'movements') {
+  const site = SITE_BY_ID[getState().site];
+  setState({ screen, overlay: null, loading: true });
+  loadPhotos(site.id);
+  busy = true;
+  try {
+    await Promise.all([mapEngine.flyToSite(site.ll), threeEngine.prepare(site.id)]);
+  } finally { busy = false; }
+  if (getState().screen !== screen) { setState({ loading: false }); return; }
+  setState({ stage: 'three', fade: 'out', loading: false });
+  setTimeout(() => setState({ fade: null }), FADE_MS);
+}
+
+/** Site → map: rise to the matching overhead view, cross-fade to the map, then zoom out. */
+async function riseOutOfSite(next: ScreenId) {
+  const site = SITE_BY_ID[getState().site];
+  busy = true;
+  try { await threeEngine.toOverhead(900); } finally { busy = false; }
+  mapEngine.handoffFrom = site.ll;
+  setState({ screen: next, stage: 'map', fade: 'in' });
+  setTimeout(() => setState({ fade: null }), FADE_MS);
+}
 
 export function go(screen: ScreenId) {
-  const from = getState().screen;
+  const s = getState();
+  if (busy) return;
   setState({ overlay: null });
-  // From a map screen, fly the map down to the site before swapping to the 3D twin.
-  if (screen === 'site' && isMap(from) && mapEngine.ready) {
-    setState({ screen });
-    mapEngine.flyToSite(SITE_BY_ID[getState().site].ll, () => {
-      if (getState().screen === 'site') setState({ stage: 'three' });
-    });
-    return;
-  }
+  if (isSiteScreen(screen) && isMap(s.screen) && mapEngine.ready) { void flyIntoSite(screen); return; }
+  if (isMap(screen) && isSiteScreen(s.screen) && s.stage === 'three') { void riseOutOfSite(screen); return; }
+  if (isSiteScreen(screen)) loadPhotos(s.site);
   setState({ screen, stage: stageFor(screen) });
+}
+
+/** Switch site from inside the 3D twin: up to the map, across to the new site, and back down. */
+async function travel(id: string) {
+  const s = getState(), from = SITE_BY_ID[s.site], screen = s.screen as 'site' | 'movements';
+  busy = true;
+  try {
+    await threeEngine.toOverhead(800);
+    mapEngine.handoffFrom = from.ll;
+    setState({ stage: 'map', fade: 'in' });
+    await sleep(FADE_MS);
+    setState({ fade: null, site: id, bld: null });
+  } finally { busy = false; }
+  await flyIntoSite(screen);
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(msg: string) {
   setState(s => ({ toast: { msg, n: (s.toast?.n ?? 0) + 1 } }));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => setState({ toast: null }), 3200);
+  toastTimer = setTimeout(() => setState({ toast: null }), 3600);
 }
 
 export function selectSite(id: string) {
+  const s = getState();
+  if (busy || id === s.site && isSiteScreen(s.screen)) return;
+  loadPhotos(id);
+  if (isSiteScreen(s.screen) && s.stage === 'three') { void travel(id); return; }
   setState({ site: id, bld: null });
-  mapEngine.flyTo(SITE_BY_ID[id].ll, 7);
+  if (isMap(s.screen)) mapEngine.flyTo(SITE_BY_ID[id].ll, 9);
 }
 /** Map pin click: select the site and return to the network view if needed. */
 export function pinSite(id: string) {
   setState({ site: id });
+  loadPhotos(id);
   if (getState().screen !== 'network') go('network');
-  else mapEngine.flyTo(SITE_BY_ID[id].ll, 6);
+  else mapEngine.flyTo(SITE_BY_ID[id].ll, 9);
 }
 export const selectRoute = (i: number) => setState({ route: i });
 export function selectShip(i: number) { setState({ ship: i }); mapEngine.fitScreen(); }
@@ -51,15 +96,32 @@ export function toggleLayer(id: string) {
 export const setBase = (base: AppState['base']) => setState({ base });
 export const togglePeel = () => setState(s => ({ peel: !s.peel }));
 export const selectBuilding = (k: string) => setState({ bld: k });
+export function focusBuilding(k: string) { selectBuilding(k); threeEngine.focus(k); }
 export const toggleRail = () => setState(s => ({ railOpen: !s.railOpen }));
 export const toggleDrawer = () => setState(s => ({ drawerOpen: !s.drawerOpen }));
 export const cycleSheet = () => setState(s => ({ sheet: ({ peek: 'half', half: 'full', full: 'peek' } as const)[s.sheet] }));
 export const setTime = (t: number) => setState({ t });
-export const goLive = () => setState({ t: 0 });
+export const goLive = () => setState({ t: 0, tod: null });
+export const setTimeOfDay = (tod: number | null) => setState({ tod });
+export const toggleTour = () => setState(s => ({ tour: !s.tour }));
+export function togglePhotoreal() {
+  const s = getState();
+  if (!s.googleKey) { toast('Add a Google Maps Platform key in Display to use photorealistic 3D'); return; }
+  setState({ photoreal: !s.photoreal });
+}
+export function setGoogleKey(k: string) {
+  const key = k.trim();
+  storeKey(key);
+  setState({ googleKey: key, photoreal: !!key, overlay: null });
+  reloadPhotos(getState().site);
+  toast(key ? 'Google key saved on this device · photorealistic 3D and Google photos on' : 'Google key removed');
+}
 export const setKiosk = (on: boolean) => { setState({ kiosk: on, overlay: null }); requestAnimationFrame(() => threeEngine.refreshRadial()); };
 export const openPalette = (q = '') => setState({ overlay: { kind: 'palette', q } });
 export const openDisplayMenu = (r: DOMRect) => setState({ overlay: { kind: 'display', top: r.bottom + 6, right: innerWidth - r.right } });
+export const openPhoto = (site: string, i: number) => setState({ overlay: { kind: 'photo', site, i } });
 export const closeOverlay = () => setState({ overlay: null });
+export function viewPhotoIn3D(site: string, i: number) { closeOverlay(); threeEngine.viewPhoto(site, i); }
 
 export function selectBin(b: Bin) { setState({ bin: b }); }
 
@@ -83,7 +145,7 @@ export function zoom(d: 1 | -1) {
 }
 export function resetView() {
   if (isMap(getState().screen)) mapEngine.fitScreen();
-  else threeEngine.enter(true);
+  else void threeEngine.enter({ reset: true });
 }
 export function toggleDim() {
   setState(s => ({ dim: s.dim === '3D' ? '2D' : '3D' }));

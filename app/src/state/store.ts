@@ -3,7 +3,11 @@ import { FEATURED_BIN } from '../data/storeModel';
 import type { Bin, ColorMode, ScreenId } from '../data/types';
 
 export type Stage = 'map' | 'three' | 'page';
-export type Overlay = null | { kind: 'palette'; q: string } | { kind: 'display'; top: number; right: number };
+export type Overlay = null | { kind: 'palette'; q: string } | { kind: 'display'; top: number; right: number } | { kind: 'photo'; site: string; i: number };
+
+export interface Photo { id: string; title: string; thumb: string; full: string; page: string; credit: string; licence: string; ll: [number, number] | null; source: 'Wikimedia Commons' | 'Mapillary' | 'Google Places' | 'Google Street View' }
+export type PhotoState = { status: 'loading' } | { status: 'ready'; items: Photo[] } | { status: 'error' };
+export interface SiteStats { buildings: number; trees: number; roads: number; source: 'osm' | 'stylised'; imagery: 'loading' | 'ok' | 'unavailable' }
 
 export interface AppState {
   screen: ScreenId;
@@ -30,6 +34,17 @@ export interface AppState {
   toast: { msg: string; n: number } | null;
   overlay: Overlay;
   loading: boolean;
+  /** Time of day in hours IST for the sun; null follows the live clock. */
+  tod: number | null;
+  /** Map cross-fade during the map ↔ 3D handoff. */
+  fade: 'in' | 'out' | null;
+  /** Cinematic auto-orbit in the 3D site. */
+  tour: boolean;
+  /** Render the site from Google Photorealistic 3D Tiles (needs a key). */
+  photoreal: boolean;
+  googleKey: string;
+  photos: Record<string, PhotoState>;
+  siteStats: Record<string, SiteStats>;
   /** Bumped on every edit so subscribers can cheaply detect changes. */
   rev: number;
 }
@@ -38,16 +53,28 @@ export const MAP_SCREENS: ScreenId[] = ['network', 'routes', 'shipments'];
 export const THREE_SCREENS: ScreenId[] = ['site', 'movements', 'store'];
 export const stageFor = (s: ScreenId): Stage => (MAP_SCREENS.includes(s) ? 'map' : THREE_SCREENS.includes(s) ? 'three' : 'page');
 
+const KEY_STORE = 'ktec-twin.googleKey';
+export function readStoredKey(): string {
+  try { return localStorage.getItem(KEY_STORE) ?? ''; } catch { return ''; }
+}
+export function storeKey(k: string) {
+  try { if (k) localStorage.setItem(KEY_STORE, k); else localStorage.removeItem(KEY_STORE); } catch { /* private mode */ }
+}
+
 function initialState(): AppState {
   const p = new URLSearchParams(location.search);
   const screen = (p.get('screen') as ScreenId) || 'network';
+  const site = p.get('site') ?? '';
+  const googleKey = readStoredKey() || (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '');
   const w = innerWidth, h = innerHeight;
   const portrait = h > w * 1.05 || w < 820;
   return {
-    screen, stage: stageFor(screen), site: 'ktec', route: 0, ship: 0, mode: 'occupancy', t: 0, off: {},
+    screen, stage: stageFor(screen), site: ['ktec', 'isu', 'dhl', 'pnq'].includes(site) ? site : 'ktec', route: 0, ship: 0, mode: 'occupancy', t: 0, off: {},
     bin: { ...FEATURED_BIN }, bld: null, peel: true, dim: '3D', moveFrom: null,
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     base: 'sat', toast: null, overlay: null, loading: false, rev: 0,
+    tod: null, fade: null, tour: false, photoreal: !!googleKey, googleKey,
+    photos: {}, siteStats: {},
   };
 }
 

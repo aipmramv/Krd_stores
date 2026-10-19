@@ -279,3 +279,37 @@ html.portrait .rep main{padding:1.25rem}
 .menu button{display:flex;justify-content:space-between;width:100%;min-height:var(--hit);padding:0 1rem;border:0;background:#fff;text-align:left;cursor:pointer;font-size:.875rem;align-items:center;gap:1rem}
 .menu button:hover{background:#EFF1F4}
 .menu .eb{display:block;padding:.75rem 1rem .25rem;color:#767A82}
+
+/* ---------- Realistic sites: handoff fades, photos, sun and key form ---------- */
+#map.fade-out{z-index:1;animation:fadeout .9s ease-in forwards;pointer-events:none}
+#map.fade-in{z-index:1;animation:fadein .9s ease-out both}
+@keyframes fadeout{0%{opacity:1}25%{opacity:1}100%{opacity:0}}
+@keyframes fadein{0%{opacity:0}100%{opacity:1}}
+.lbl.photo{padding:3px;min-height:0;border-radius:2px}
+.lbl.photo img{display:block;width:3rem;height:3rem;object-fit:cover}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:.375rem;padding:0 1.25rem 1rem}
+.photos button{position:relative;padding:0;border:0;background:#EFF1F4;aspect-ratio:1;cursor:pointer;overflow:hidden}
+.photos img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s var(--ease)}
+.photos button:hover img{transform:scale(1.06)}
+.photos .src{position:absolute;left:0;right:0;bottom:0;padding:.125rem .375rem;background:rgba(20,20,20,.6);color:#fff;font-size:.625rem;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note{padding:0 1.25rem 1rem;font-size:.75rem;color:#767A82}
+.addr{font-size:.8125rem;color:#4A4D55;margin:.5rem 0 0;line-height:1.4}
+.overlay.dark{background:rgba(10,10,12,.86);align-items:center;padding:1rem}
+.lightbox{margin:0;display:flex;flex-direction:column;gap:.75rem;max-width:min(80rem,100%);max-height:100%}
+.lightbox img{max-width:100%;max-height:calc(100vh - 10rem);object-fit:contain;align-self:center;background:#000}
+.lightbox figcaption{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;color:#fff}
+.lightbox figcaption b{display:block;font-size:1rem}.lightbox figcaption small{display:block;font-size:.75rem;color:#C4C7CD}
+.lb-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.keyform{display:flex;flex-direction:column;gap:.5rem;padding:.25rem 1rem .75rem;max-width:22rem}
+.keyform label{font-size:.75rem;color:#4A4D55}
+.keyform div{display:flex;gap:.5rem}
+.keyform input{flex:1;min-width:0;min-height:var(--hit);padding:0 .75rem;border:1px solid #C4C7CD;border-radius:4px;font:inherit;font-size:.8125rem}
+.sun{display:flex;align-items:center;gap:.75rem;padding:0 1.25rem}
+.sun input{flex:1}
+.sun b{font-size:.875rem;min-width:3.5rem}
+.srcs{display:flex;flex-wrap:wrap;gap:.375rem;padding:0 1.25rem 1rem}
+.sun input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(90deg,#2C2E33,#FFE141 50%,#2C2E33)}
+.sun input[type=range]::-moz-range-track{background:linear-gradient(90deg,#2C2E33,#FFE141 50%,#2C2E33)}
+/* Loading sits below the site pin during the fly-in, readable over imagery. */
+.loading{top:auto;bottom:calc(var(--bot) + 2rem);transform:translateX(-50%);background:rgba(20,20,20,.78);color:#fff;padding:.625rem 1rem}
+html.portrait .loading{bottom:calc(var(--bot) + var(--sheet) + 2rem)}

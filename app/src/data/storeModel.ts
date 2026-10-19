@@ -1,4 +1,4 @@
-// Electronics store (Building B2, floor L1) model: 4 rack rows × 12 bays × 4 levels.
+// Electronics store (store floor of the site's primary building) model: 4 rack rows × 12 bays × 4 levels.
 import { LEGENDS, PARTS } from './sample';
 import type { Bin, ColorMode, Part } from './types';
 

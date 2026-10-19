@@ -1,29 +1,21 @@
 // Sample data for the first build. Replace these exports with API-backed sources later;
 // the rest of the app only depends on the shapes in ./types.
-import type { ColorMode, LatLng, Part, PartStatus, RouteOption, ScreenId, Shipment, Site } from './types';
+import type { ColorMode, LatLng, Part, PartStatus, RouteOption, ScreenId, Shipment } from './types';
 
 export const MODULES: [ScreenId, string][] = [
   ['network', 'Network'], ['routes', 'Routes'], ['site', 'Site twin'], ['store', 'Store twin'],
   ['shipments', 'Shipments'], ['movements', 'Moves & scrap'], ['reports', 'Reports & masters'], ['mobile', 'Mobile'],
 ];
 
-export const SITES: Site[] = [
-  { id: 'ktec', name: 'KTEC Chennai', type: 'R&D centre · Sriperumbudur', ll: [12.9280, 79.9130], space: 78, value: '₹152 Cr', ship: 37, alerts: 4, left: false },
-  { id: 'chw', name: 'Chennai central warehouse', type: 'Warehouse · Oragadam', ll: [12.8340, 79.9530], space: 71, value: '₹64 Cr', ship: 22, alerts: 1, left: 'b' },
-  { id: 'blr', name: 'Bengaluru test lab', type: 'Lab · Electronic City', ll: [12.8452, 77.6602], space: 55, value: '₹38 Cr', ship: 14, alerts: 0, left: true },
-  { id: 'pnq', name: 'KTEC Pune', type: 'R&D centre · Hinjewadi', ll: [18.5913, 73.7389], space: 64, value: '₹71 Cr', ship: 19, alerts: 1, left: false },
-  { id: 'bom', name: 'Bhiwandi logistics hub', type: '3PL hub · Bhiwandi', ll: [19.2960, 73.0630], space: 83, value: '₹29 Cr', ship: 31, alerts: 1, left: true },
-  { id: 'del', name: 'Manesar regional store', type: 'Store · Manesar', ll: [28.3540, 76.9400], space: 47, value: '₹22 Cr', ship: 11, alerts: 0, left: false },
-];
-export const SITE_BY_ID: Record<string, Site> = Object.fromEntries(SITES.map(s => [s.id, s]));
+export { SITE_BY_ID, SITES } from './sites';
 
 /** [layer id, label, on by default] per screen. */
 export const LAYERS: Partial<Record<ScreenId, [string, string, number][]>> = {
   network: [['sites', 'Sites', 1], ['ship', 'Shipments in transit', 1], ['xfer', 'Site-to-site transfers', 1], ['alerts', 'Alerts', 1]],
   routes: [['traffic', 'Live traffic', 1], ['weather', 'Weather risk', 1], ['hubs', 'Airports and rail heads', 1]],
   shipments: [['inb', 'Inbound', 1], ['outb', 'Outbound', 1], ['trail', 'Milestone trails', 1]],
-  site: [['ctx', 'Neighbouring buildings', 1], ['img', 'Satellite ground', 1], ['lbl', 'Labels', 1], ['alerts3', 'Alerts', 1]],
-  movements: [['flows', 'Internal moves', 1], ['scrapf', 'Scrap flows', 1], ['ctx', 'Neighbouring buildings', 1], ['lbl', 'Labels', 1]],
+  site: [['ctx', 'Neighbouring buildings', 1], ['img', 'Satellite ground', 1], ['trees', 'Trees', 1], ['veh', 'Vehicles', 1], ['photos', 'Photos', 1], ['lbl', 'Labels', 1], ['alerts3', 'Alerts', 1]],
+  movements: [['flows', 'Internal moves', 1], ['scrapf', 'Scrap flows', 1], ['ctx', 'Neighbouring buildings', 1], ['trees', 'Trees', 1], ['veh', 'Vehicles', 1], ['lbl', 'Labels', 1]],
   store: [['ghost', 'Planned inbound', 1], ['resv', 'Reservations', 1], ['exc', 'Exceptions', 1], ['lbl', 'Labels', 1]],
 };
 
@@ -54,12 +46,13 @@ export const STATUS_DOT: Record<PartStatus, string> = {
   'Consumed': '#767A82', 'Planned': '#C4C7CD', 'Scrap pending': '#C8312B',
 };
 
-/** Fallback road geometry Chennai → Pune along NH48; replaced by OSRM when reachable. */
-export const NH48: LatLng[] = [[12.928, 79.913], [12.92, 79.13], [12.52, 78.21], [12.97, 77.59], [13.34, 77.10], [14.23, 76.40], [14.46, 75.92], [15.36, 75.12], [15.85, 74.50], [16.70, 74.24], [17.68, 74.00], [18.5913, 73.7389]];
-export const RAIL: LatLng[] = [[12.928, 79.913], [13.08, 80.27], [13.08, 79.67], [13.63, 79.51], [15.17, 77.37], [16.20, 77.36], [17.06, 76.99], [17.66, 75.91], [18.46, 74.58], [18.53, 73.87], [18.5913, 73.7389]];
+/** Fallback road geometry KTEC Chennai (Ambattur) → KTEC Pune (Aundh) along NH48 via Bengaluru; replaced by OSRM when reachable. */
+export const NH48: LatLng[] = [[13.0905, 80.1613], [13.04, 79.93], [12.92, 79.13], [12.52, 78.21], [12.97, 77.59], [13.34, 77.10], [14.23, 76.40], [14.46, 75.92], [15.36, 75.12], [15.85, 74.50], [16.70, 74.24], [17.68, 74.00], [18.46, 73.85], [18.5631, 73.8078]];
+/** Chennai Central → Pune Junction via Renigunta, Guntakal and Solapur. */
+export const RAIL: LatLng[] = [[13.0905, 80.1613], [13.0827, 80.2757], [13.08, 79.67], [13.63, 79.51], [15.17, 77.37], [16.20, 77.36], [17.06, 76.99], [17.66, 75.91], [18.46, 74.58], [18.5285, 73.8743], [18.5631, 73.8078]];
 /** Site → MAA airport, flight, PNQ airport → site. */
 export const AIR: { siteA: LatLng; airportA: LatLng; airportB: LatLng; siteB: LatLng } = {
-  siteA: [12.928, 79.913], airportA: [12.99, 80.17], airportB: [18.58, 73.92], siteB: [18.5913, 73.7389],
+  siteA: [13.0905, 80.1613], airportA: [12.99, 80.17], airportB: [18.58, 73.92], siteB: [18.5631, 73.8078],
 };
 
 export const ROUTES: RouteOption[] = [
@@ -70,16 +63,16 @@ export const ROUTES: RouteOption[] = [
 ];
 
 export const SHIPS: Shipment[] = [
-  { id: 'DEL 2210 9934 7781', carrier: 'Delhivery', from: 'ktec', to: 'bom', eta: 'ETA 21 Oct', status: 'E-way bill hold', dot: '#C8312B', hold: [15.36, 75.12], dir: 'out' },
-  { id: 'BD 88213 4410', carrier: 'Blue Dart', from: 'blr', to: 'del', eta: 'ETA 19 Oct', status: 'In transit', dot: '#1450F5', dur: 16, dir: 'out' },
-  { id: 'GATI 5510 2231', carrier: 'Gati', from: 'chw', to: 'ktec', eta: 'Today 17:00', status: 'Out for delivery', dot: '#1B7F4E', dur: 6, dir: 'in' },
-  { id: 'DTDC 7731 0020', carrier: 'DTDC', from: 'pnq', to: 'ktec', eta: 'ETA 20 Oct', status: 'In transit', dot: '#1450F5', dur: 14, dir: 'in' },
-  { id: 'TCI 44120 889', carrier: 'TCI Freight', from: 'del', to: 'bom', eta: 'ETA 22 Oct', status: 'Delay risk', dot: '#C77700', dur: 18, dir: 'out' },
-  { id: 'SFX 6612 0034', carrier: 'Safexpress', from: 'bom', to: 'pnq', eta: 'ETA 19 Oct', status: 'In transit', dot: '#1450F5', dur: 8, dir: 'in' },
-  { id: 'DHL 7834 5521', carrier: 'DHL', from: 'ktec', to: 'blr', eta: 'ETA 19 Oct', status: 'In transit', dot: '#1450F5', dur: 9, dir: 'out' },
+  { id: 'DEL 2210 9934 7781', carrier: 'Delhivery', from: 'isu', to: 'pnq', eta: 'ETA 21 Oct', status: 'E-way bill hold', dot: '#C8312B', hold: [15.36, 75.12], dir: 'out' },
+  { id: 'BD 88213 4410', carrier: 'Blue Dart', from: 'ktec', to: 'pnq', eta: 'ETA 19 Oct', status: 'In transit', dot: '#1450F5', dur: 16, dir: 'out' },
+  { id: 'GATI 5510 2231', carrier: 'Gati', from: 'dhl', to: 'isu', eta: 'Today 17:00', status: 'Out for delivery', dot: '#1B7F4E', dur: 6, dir: 'in' },
+  { id: 'DTDC 7731 0020', carrier: 'DTDC', from: 'pnq', to: 'ktec', eta: 'ETA 20 Oct', status: 'Delay risk', dot: '#C77700', dur: 14, dir: 'in' },
+  { id: 'TCI 44120 889', carrier: 'TCI Freight', from: 'dhl', to: 'pnq', eta: 'ETA 22 Oct', status: 'In transit', dot: '#1450F5', dur: 18, dir: 'out' },
+  { id: 'SFX 6612 0034', carrier: 'Safexpress', from: 'isu', to: 'ktec', eta: 'Today 15:30', status: 'In transit', dot: '#1450F5', dur: 8, dir: 'in' },
+  { id: 'DHL 7834 5521', carrier: 'DHL', from: 'dhl', to: 'ktec', eta: 'ETA 19 Oct', status: 'In transit', dot: '#1450F5', dur: 9, dir: 'out' },
 ];
 
-export const XFERS: [string, string][] = [['ktec', 'pnq'], ['chw', 'ktec'], ['ktec', 'blr'], ['bom', 'del']];
+export const XFERS: [string, string][] = [['ktec', 'pnq'], ['dhl', 'isu'], ['isu', 'ktec'], ['dhl', 'ktec']];
 
-/** India extent used to frame the network map. */
-export const INDIA_BOUNDS: [LatLng, LatLng] = [[8, 70], [29.5, 86]];
+/** Frames all key sites (Chennai cluster and Pune) with room for labels. */
+export const NETWORK_BOUNDS: [LatLng, LatLng] = [[11.6, 72.6], [19.6, 81.4]];

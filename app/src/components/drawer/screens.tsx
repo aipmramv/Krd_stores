@@ -1,14 +1,38 @@
-import { ROUTES, SHIPS, SITE_BY_ID, SITES } from '../../data/sample';
+import { useEffect } from 'react';
+import { ROUTES, SHIPS } from '../../data/sample';
+import { primary, SITE_BY_ID, SITES } from '../../data/sites';
+import { loadPhotos } from '../../services/photos';
 import { binId, partInBin, rnd } from '../../data/storeModel';
-import { binAction, go, selectRoute, selectShip, selectSite, toast } from '../../state/actions';
+import { binAction, focusBuilding, go, openPhoto, selectRoute, selectShip, selectSite, toast } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
 
 const Dot = ({ c }: { c: string }) => <span className="dot" style={{ background: c }} />;
 const Eb = ({ children }: { children: string }) => <div className="st"><span className="eb ink">{children}</span></div>;
 
+function Photos({ site, max = 6 }: { site: string; max?: number }) {
+  const ph = useApp(s => s.photos[site]);
+  useEffect(() => { loadPhotos(site); }, [site]);
+  if (!ph || ph.status === 'loading') return <p className="note">Finding photos near the site…</p>;
+  if (ph.status === 'error') return <p className="note">Photos are unavailable right now (Wikimedia Commons could not be reached).</p>;
+  if (!ph.items.length) return <p className="note">No geotagged photos within 2 km yet.</p>;
+  return (
+    <>
+      <div className="photos">
+        {ph.items.slice(0, max).map((p, i) => (
+          <button key={p.id} onClick={() => openPhoto(site, i)} aria-label={p.title}>
+            <img src={p.thumb} alt="" loading="lazy" onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }} /><span className="src">{p.source === 'Google Street View' ? p.title.replace('Street View · ', '') : p.credit}</span>
+          </button>
+        ))}
+      </div>
+      <p className="note">{ph.items.length} photos within 2 km · {[...new Set(ph.items.map(p => p.source))].join(' and ')}</p>
+    </>
+  );
+}
+
 export function NetworkDrawer() {
   const id = useApp(s => s.site), site = SITE_BY_ID[id];
+  const alerts = site.alerts.filter(a => a[2] === '#C8312B').length;
   return (
     <DrawerFrame title="Site" foot={<>
       <button className="btn primary" onClick={() => go('site')}>Enter site in 3D</button>
@@ -17,31 +41,32 @@ export function NetworkDrawer() {
     </>}>
       <div className="dh">
         <span className="eb">{site.type}</span><h2>{site.name}</h2>
+        <p className="addr">{site.address}</p>
         <p>{site.ll[0].toFixed(4)}° N, {site.ll[1].toFixed(4)}° E · IST (UTC+5:30)</p>
       </div>
       <div className="kpis">
         <div><span>Stock value</span><b>{site.value}</b></div>
         <div><span>Space used</span><b>{site.space}%</b></div>
         <div><span>Open shipments</span><b>{site.ship}</b></div>
-        <div><span>Alerts</span><b style={{ color: site.alerts ? '#C8312B' : '#141414' }}>{site.alerts}</b></div>
+        <div><span>Alerts</span><b style={{ color: alerts ? '#C8312B' : '#141414' }}>{site.alerts.length}</b></div>
       </div>
-      <Eb>All KTEC sites in India</Eb>
+      <Eb>Key KONE sites in India</Eb>
       <div className="rows">
         {SITES.map(x => (
           <button key={x.id} className={`rowbtn ${x.id === id ? 'sel' : ''}`} onClick={() => selectSite(x.id)}>
             <span><b>{x.name}</b><small>{x.type}</small></span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>{x.space}%{x.alerts ? <Dot c="#C8312B" /> : null}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>{x.space}%{x.alerts.length ? <Dot c={x.alerts[0][2]} /> : null}</span>
           </button>
         ))}
       </div>
-      {id === 'ktec' && <>
+      {site.alerts.length > 0 && <>
         <Eb>Alerts at this site</Eb>
         <div className="rows">
-          <div><span><b>Hazmat store temperature 31 °C</b><small>Limit 25 °C · 12 min ago</small></span><Dot c="#C8312B" /></div>
-          <div><span><b>Cycle count variance, C-10-04</b><small>System 40 · scanned 36</small></span><Dot c="#C8312B" /></div>
-          <div><span><b>Inbound pressure on staging, 21 Oct</b><small>5 pallets planned · 2 slots free</small></span><Dot c="#C77700" /></div>
+          {site.alerts.map(([t, d, c]) => <div key={t}><span><b>{t}</b><small>{d}</small></span><Dot c={c} /></div>)}
         </div>
       </>}
+      <Eb>Photos near this site</Eb>
+      <Photos site={id} max={6} />
     </DrawerFrame>
   );
 }
@@ -81,7 +106,7 @@ type Milestone = [string, string, 0 | 1 | 2]; // 0 pending, 1 done, 2 exception
 export function ShipmentsDrawer() {
   const sel = useApp(s => s.ship), sh = SHIPS[sel];
   const ms: Milestone[] = sh.hold
-    ? [['Picked up · ' + SITE_BY_ID[sh.from].name, '16 Oct, 18:20', 1], ['Departed Bengaluru hub', '17 Oct, 06:05', 1],
+    ? [['Picked up · ' + SITE_BY_ID[sh.from].name, '16 Oct, 18:20', 1], ['Departed Chennai hub', '17 Oct, 06:05', 1],
       ['E-way bill mismatch · held at Hubballi', '18 Oct, 08:40 · delay risk high', 2], ['Delivered · ' + SITE_BY_ID[sh.to].name, 'ETA 21 Oct (was 19 Oct)', 0]]
     : [['Picked up · ' + SITE_BY_ID[sh.from].name, '17 Oct, 15:10', 1], ['In transit', 'Last scan 18 Oct, 07:55', 1], ['Delivered · ' + SITE_BY_ID[sh.to].name, sh.eta, 0]];
   return (
@@ -123,50 +148,62 @@ export function ShipmentsDrawer() {
   );
 }
 
-const BUILDINGS: Record<string, [string, string]> = {
-  b2: ['Building B2 · Stores', '3 floors · 4,120 m² · tap L1 to enter the electronics store'],
-  lab: ['R&D labs', '12 labs · 3 booked today'],
-  adm: ['Admin and offices', 'Badge access · no stock'],
-  haz: ['Hazmat store', 'Li-ion and flammables · temperature 31 °C, limit 25 °C'],
-  qua: ['Quarantine', '2 lots on hold · awaiting QA'],
-  stg: ['Staging and docks', '5 inbound today · 2 slots free'],
-  tow: ['Test tower', '72 m · shaft 2 in test'],
-  scr: ['Scrap yard', '4 open cases · disposal vendor pick-up Friday'],
-};
+function Sources({ site }: { site: string }) {
+  const st = useApp(s => s.siteStats[site]), photoreal = useApp(s => s.photoreal);
+  if (!st) return <p className="note">Loading OpenStreetMap buildings and satellite imagery…</p>;
+  return (
+    <div className="srcs">
+      <span className="chip">{st.source === 'osm' ? `OpenStreetMap · ${st.buildings} buildings` : 'Stylised campus (OSM unavailable)'}</span>
+      <span className="chip">{st.trees} trees</span>
+      <span className="chip">{st.imagery === 'ok' ? 'Esri satellite ground' : st.imagery === 'loading' ? 'Imagery loading' : 'Imagery unavailable · map ground'}</span>
+      <span className="chip">Blender models · test tower, trucks, trees</span>
+      {photoreal && <span className="chip dark">Google Photorealistic 3D Tiles</span>}
+    </div>
+  );
+}
 
 export function SiteDrawer() {
-  const b = useApp(s => s.bld), site = SITE_BY_ID[useApp(s => s.site)];
-  const info = (b && BUILDINGS[b]) || [site.name, `${site.type} · 3D built from satellite imagery and OpenStreetMap building footprints at ${site.ll[0].toFixed(4)}, ${site.ll[1].toFixed(4)}`];
+  const b = useApp(s => s.bld), id = useApp(s => s.site), site = SITE_BY_ID[id];
+  const main = primary(site), f = b ? site.facilities.find(x => x.k === b) : null;
   return (
     <DrawerFrame title="Site twin" foot={<>
       <button className="btn primary" onClick={() => go('store')}>Enter electronics store</button>
       <button className="btn" onClick={() => go('movements')}>Show moves</button>
     </>}>
-      <div className="dh"><span className="eb">{b ? 'Building' : 'Site'}</span><h2>{info[0]}</h2><p>{info[1]}</p></div>
-      {b === 'b2' || !b ? <>
-        <Eb>Floors · Building B2</Eb>
+      <div className="dh">
+        <span className="eb">{f ? 'Facility' : site.type}</span><h2>{f ? f.n : site.name}</h2>
+        <p className={f ? '' : 'addr'}>{f ? f.info : site.address}</p>
+      </div>
+      {!f && <Sources site={id} />}
+      {(!f || f.floors) && main.floors && <>
+        <Eb>{`Floors · ${main.n}`}</Eb>
         <div className="rows">
-          <button className="rowbtn" onClick={() => toast('L2 lab stores · coming in next drill-down')}><span><b>L2 · Lab stores</b><small>Calibration, sensors, consumables</small></span><b>61%</b></button>
-          <button className="rowbtn sel" onClick={() => go('store')}><span><b>L1 · Electronics store</b><small>ESD area · 4 rack rows · 192 bins</small></span><b>84%</b></button>
-          <button className="rowbtn" onClick={() => toast('L0 receiving · coming in next drill-down')}><span><b>L0 · Receiving and heavy store</b><small>Docks, staging, motors, rails</small></span><b>72%</b></button>
+          {main.floors.map((_, i) => i).reverse().map(i => {
+            const [n, space] = main.floors![i], isStore = i === main.storeFloor;
+            return (
+              <button key={n} className={`rowbtn ${isStore ? 'sel' : ''}`} onClick={() => (isStore ? go('store') : toast(`${n} · coming in the next drill-down`))}>
+                <span><b>{n}</b><small>{isStore ? 'ESD area · 4 rack rows · 192 bins' : 'Opens in the next drill-down'}</small></span><b>{space}</b>
+              </button>
+            );
+          })}
         </div>
-        <Eb>Space on L1 · next 4 weeks</Eb>
-        <div style={{ padding: '0 1.25rem 1rem' }}>
-          <div style={{ display: 'flex', height: '.75rem', background: '#EFF1F4' }}>
-            <div style={{ width: '64%', background: '#1450F5' }} />
-            <div style={{ width: '12%', background: '#A1B9FB' }} />
-            <div style={{ width: '8%', background: 'repeating-linear-gradient(45deg,#D0DCFD 0 4px,#fff 4px 8px)' }} />
-          </div>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '.5rem', fontSize: '.75rem', color: '#4A4D55' }}>
-            <span>Used 64%</span><span>Reserved 12%</span><span>Planned inbound 8%</span>
-          </div>
-        </div>
-      </> : (
+      </>}
+      {f && !f.floors && (
         <div className="kpis">
-          <div><span>Stock units</span><b>{Math.round(rnd(b.length, 2, 3) * 400 + 40)}</b></div>
-          <div><span>Open tasks</span><b>{Math.round(rnd(b.length, 5, 1) * 12 + 1)}</b></div>
+          <div><span>Stock units</span><b>{Math.round(rnd(f.k.length, 2, 3) * 400 + 40)}</b></div>
+          <div><span>Open tasks</span><b>{Math.round(rnd(f.k.length, 5, 1) * 12 + 1)}</b></div>
         </div>
       )}
+      <Eb>Facilities</Eb>
+      <div className="rows">
+        {site.facilities.map(x => (
+          <button key={x.k} className={`rowbtn ${x.k === b ? 'sel' : ''}`} onClick={() => focusBuilding(x.k)}>
+            <span><b>{x.n}</b><small>{x.s}</small></span>{x.alert ? <Dot c="#C8312B" /> : <span className="dot" style={{ background: x.col, border: '1px solid rgba(0,0,0,.15)' }} />}
+          </button>
+        ))}
+      </div>
+      <Eb>Photos near this site</Eb>
+      <Photos site={id} max={9} />
     </DrawerFrame>
   );
 }
@@ -219,6 +256,8 @@ export function StoreDrawer() {
 }
 
 export function MovementsDrawer() {
+  const site = SITE_BY_ID[useApp(s => s.site)];
+  const name = (k: string) => site.facilities.find(f => f.k === k)?.n ?? k;
   const steps = ['Tag', 'Reason', 'Approval', 'Move', 'Dispose', 'Write-off'];
   return (
     <DrawerFrame title="Movements and scrap" foot={<>
@@ -243,12 +282,12 @@ export function MovementsDrawer() {
         <div className="sel"><b>EHS · you</b><b>Pending</b></div>
         <div><span>Finance controller</span><span style={{ color: '#767A82' }}>Waiting</span></div>
       </div>
-      <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">Active moves today · 6</span></div>
+      <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">{`Moves today · ${site.short}`}</span></div>
       <div className="rows">
-        <div><span>B2 store → R&amp;D labs</span><span className="chip" style={{ background: '#D0DCFD' }}>Prototype build</span></div>
-        <div><span>R&amp;D labs → Test tower</span><span className="chip" style={{ background: '#D2F5FF' }}>Lab test</span></div>
-        <div><span>B2 store → Quarantine</span><span className="chip" style={{ background: '#FFE141' }}>Quarantine</span></div>
-        <div><span>KTEC Chennai → KTEC Pune</span><span className="chip">Loan to site</span></div>
+        {site.flows.map(([from, to, col, label]) => (
+          <div key={label}><span><b>{name(from)} → {name(to)}</b><small>{label}</small></span><span className="dot" style={{ background: col }} /></div>
+        ))}
+        <div><span><b>KTEC Chennai → KTEC Pune</b><small>Loan to site · 2 crates</small></span><span className="chip">Inter-site</span></div>
       </div>
     </DrawerFrame>
   );

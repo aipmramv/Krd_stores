@@ -2,11 +2,15 @@
 // it subscribes to the app store and redraws its layers when relevant state changes.
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { AIR, INDIA_BOUNDS, NH48, RAIL, ROUTES, SHIPS, SITE_BY_ID, SITES, XFERS } from '../data/sample';
+import { AIR, NETWORK_BOUNDS, NH48, RAIL, ROUTES, SHIPS, XFERS } from '../data/sample';
+import { SITE_BY_ID, SITES } from '../data/sites';
+import { HANDOFF_ZOOM, safeCentreOffset } from '../safeArea';
 import type { LatLng, ScreenId } from '../data/types';
 import { pinSite, selectRoute, selectShip } from '../state/actions';
 import { getState, isOn, MAP_SCREENS, subscribe, type AppState } from '../state/store';
 
+/** Flight time grows gently with distance: about 2 s across a city, 3.4 s across India. */
+const flightSeconds = (km: number) => Math.min(3.4, 1.8 + Math.log10(1 + km) * .55);
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
 
 /** Quadratic bezier between two points, bowed sideways by k; reads as a flight or lane arc. */
@@ -36,6 +40,8 @@ class MapEngine {
   private movers: Mover[] = [];
   private roadGeom: LatLng[] = NH48;
   private last: Partial<AppState> = {};
+  /** Set before the map becomes visible again after the 3D site, so it reappears at the matching view. */
+  handoffFrom: LatLng | null = null;
 
   init(el: HTMLElement) {
     if (this.map) return;
@@ -47,7 +53,7 @@ class MapEngine {
       osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }),
     };
     this.applyBase(getState().base);
-    map.fitBounds(INDIA_BOUNDS);
+    map.fitBounds(NETWORK_BOUNDS);
     this.g.sites = L.layerGroup().addTo(map);
     this.g.xfer = L.layerGroup();
     this.g.ship = L.layerGroup();
@@ -93,9 +99,10 @@ class MapEngine {
     SITES.forEach(site => {
       const sel = site.id === s.site;
       const side = site.left === 'b' ? 'b' : site.left ? 'l' : '';
-      const pulse = site.alerts && isOn(s, 'network', 'alerts') ? '<span class="pu"></span>' : '';
-      const alerts = site.alerts ? `${site.alerts} alert${site.alerts > 1 ? 's' : ''}` : 'no alerts';
-      const m = divM(site.ll, `<div class="pin ${side} ${sel ? 'sel' : ''}">${pulse}<span class="pd"></span><div class="pc"><b>${site.name}</b><span>Space ${site.space}% · ${alerts}</span></div></div>`, sel ? 1000 : 0);
+      const n = site.alerts.length;
+      const pulse = n && isOn(s, 'network', 'alerts') ? '<span class="pu"></span>' : '';
+      const alerts = n ? `${n} alert${n > 1 ? 's' : ''}` : 'no alerts';
+      const m = divM(site.ll, `<div class="pin ${side} ${sel ? 'sel' : ''}">${pulse}<span class="pd"></span><div class="pc"><b>${site.name}</b><span>${site.type.split(' · ')[0]} · ${alerts}</span></div></div>`, sel ? 1000 : 0);
       m.on('click', () => pinSite(site.id));
       this.g.sites.addLayer(m);
     });
@@ -231,32 +238,47 @@ class MapEngine {
     const map = this.map;
     if (!map) return;
     const s = getState();
-    if (s.screen === 'network') map.flyToBounds(INDIA_BOUNDS, { ...this.pad(), duration: .8 });
+    if (s.screen === 'network') map.flyToBounds(NETWORK_BOUNDS, { ...this.pad(), duration: 1.2 });
     if (s.screen === 'routes') map.flyToBounds(L.latLngBounds([...NH48, ...RAIL]), { ...this.pad(), duration: .8 });
     if (s.screen === 'shipments') {
       const sh = SHIPS[s.ship];
-      map.flyToBounds(L.latLngBounds([SITE_BY_ID[sh.from].ll, SITE_BY_ID[sh.to].ll]), { ...this.pad(), duration: .8, maxZoom: 8 });
+      map.flyToBounds(L.latLngBounds([SITE_BY_ID[sh.from].ll, SITE_BY_ID[sh.to].ll]), { ...this.pad(), duration: .8, maxZoom: 11 });
     }
   }
 
-  /** Called when the map surface becomes visible for a map screen. */
+  /** Map centre that puts `ll` at the centre of the stage's safe area, where the 3D view centres the site. */
+  private centreFor(ll: LatLng, zoom: number) {
+    const map = this.map!, [ox, oy] = safeCentreOffset();
+    return map.unproject(map.project(ll, zoom).subtract([ox, oy]), zoom);
+  }
+
+  /** Called whenever the map surface is visible: after a 3D handoff, then on map screens draw and frame. */
   show(scr: ScreenId) {
     if (!this.map) return;
     this.map.invalidateSize();
+    if (this.handoffFrom) {
+      this.map.setView(this.centreFor(this.handoffFrom, HANDOFF_ZOOM), HANDOFF_ZOOM, { animate: false });
+      this.handoffFrom = null;
+      if (MAP_SCREENS.includes(scr)) setTimeout(() => this.fitScreen(), 450);
+    } else if (MAP_SCREENS.includes(scr)) this.fitScreen();
+    if (!MAP_SCREENS.includes(scr)) return;
     this.drawSites();
     if (scr === 'routes') this.drawRoutes(); else this.drawShips();
     this.layersFor(scr);
-    this.fitScreen();
   }
 
   invalidate() { this.map?.invalidateSize(); }
   flyTo(ll: LatLng, minZoom: number) { this.map?.flyTo(ll, Math.max(this.map.getZoom(), minZoom), { duration: .8 }); }
   zoomBy(d: number) { this.map?.setZoom(this.map.getZoom() + d); }
-  flyToSite(ll: LatLng, done: () => void) {
+  /** Fly down to the handoff view of a site; resolves when the map has settled. */
+  flyToSite(ll: LatLng): Promise<void> {
     const map = this.map;
-    if (!map) { done(); return; }
-    map.flyTo(ll, 17, { duration: 1.4 });
-    map.once('moveend', done);
+    if (!map) return Promise.resolve();
+    const far = map.getCenter().distanceTo(ll) / 1000;
+    return new Promise(done => {
+      map.once('moveend', () => done());
+      map.flyTo(this.centreFor(ll, HANDOFF_ZOOM), HANDOFF_ZOOM, { duration: flightSeconds(far) });
+    });
   }
 }
 

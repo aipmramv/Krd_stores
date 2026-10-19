@@ -1,25 +1,28 @@
 // Floating chrome over the map / 3D stage: breadcrumbs, layers rail, view controls, timeline,
 // move banner, loading indicator and toast.
 import { Fragment } from 'react';
-import { COLOR_MODES, LAYERS, LEGENDS, SITE_BY_ID } from '../data/sample';
+import { COLOR_MODES, LAYERS, LEGENDS } from '../data/sample';
+import { primary, SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { ScreenId } from '../data/types';
 import {
-  cancelMove, go, goLive, resetView, setBase, setMode, setTime, toggleDim, toggleLayer, togglePeel, toggleRail, zoom,
+  cancelMove, go, goLive, resetView, setBase, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, togglePhotoreal, toggleRail, toggleTour, zoom,
 } from '../state/actions';
 import { isOn, MAP_SCREENS, THREE_SCREENS, useApp } from '../state/store';
 
 export function Crumbs({ hidden }: { hidden: boolean }) {
   const s = useApp(x => x);
-  const site = SITE_BY_ID[s.site];
+  const site = SITE_BY_ID[s.site], main = primary(site);
   const india: [string, ScreenId] = ['India', 'network'];
+  const bld = s.bld ? site.facilities.find(f => f.k === s.bld) : null;
+  const storeFloor = main.floors?.[main.storeFloor ?? 0]?.[0].split(' · ')[0] ?? 'Store floor';
   const cr: [string, ScreenId][] = ({
     network: [india],
     routes: [india, ['Route plan · Chennai → Pune', 'routes']],
     shipments: [india, ['Shipments · 142 live', 'shipments']],
-    site: [india, [site.name, 'site'], ...(s.bld === 'b2' ? [['Building B2', 'site'] as [string, ScreenId]] : [])],
+    site: [india, [site.name, 'site'], ...(bld ? [[bld.n, 'site'] as [string, ScreenId]] : [])],
     movements: [india, [site.name, 'site'], ['Movements and scrap', 'movements']],
-    store: [india, ['KTEC Chennai', 'site'], ['Building B2', 'site'], ['Floor L1', 'site'], ['Electronics store', 'store'], ['Rack ' + 'ABCD'[s.bin.r], 'store'], ['Bin ' + binId(s.bin), 'store']],
+    store: [india, [site.short, 'site'], [main.n, 'site'], [storeFloor, 'site'], ['Electronics store', 'store'], ['Rack ' + 'ABCD'[s.bin.r], 'store'], ['Bin ' + binId(s.bin), 'store']],
   } as Partial<Record<ScreenId, [string, ScreenId][]>>)[s.screen] ?? [];
   return (
     <div className={`crumbs${hidden ? ' hidden' : ''}`} id="crumbs">
@@ -72,9 +75,10 @@ export function Rail({ hidden }: { hidden: boolean }) {
             </div>
           </>}
           {scr === 'site' && <>
-            <div className="sec"><span className="eb ink">Building B2</span></div>
+            <div className="sec"><span className="eb ink">{primary(SITE_BY_ID[s.site]).n}</span></div>
             <button className={`tgl ${s.peel ? 'on' : ''}`} onClick={togglePeel} aria-pressed={s.peel}><span>Peel floors open</span><span className="sw" /></button>
           </>}
+          {(scr === 'site' || scr === 'movements') && <SunAndView />}
           <div className="sec"><span className="eb ink">Filters</span></div>
           <div className="field"><span>Project</span><b>All projects</b></div>
           <div className="field"><span>Hazard class</span><b>Any</b></div>
@@ -83,6 +87,31 @@ export function Rail({ hidden }: { hidden: boolean }) {
       </aside>
     </>
   );
+}
+
+const hhmm = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+const istNow = () => { const d = new Date(); return (d.getUTCHours() + d.getUTCMinutes() / 60 + 5.5) % 24; };
+
+/** Sun position by time of day, cinematic tour and the optional photorealistic mode. */
+function SunAndView() {
+  const tod = useApp(s => s.tod), tour = useApp(s => s.tour), photoreal = useApp(s => s.photoreal), key = useApp(s => s.googleKey);
+  const h = tod ?? istNow();
+  return <>
+    <div className="sec"><span className="eb ink">Sun and time of day · IST</span></div>
+    <div className="sun">
+      <input type="range" min={5} max={20} step={.25} value={Math.min(20, Math.max(5, h))} aria-label="Time of day" onChange={e => setTimeOfDay(+e.target.value)} />
+      <b>{hhmm(h)}</b>
+    </div>
+    <div className="seg" style={{ marginTop: '.375rem' }}>
+      <button className={tod === null ? 'on' : ''} onClick={() => setTimeOfDay(null)}>Now</button>
+      <button className={tod === 19.5 ? 'on' : ''} onClick={() => setTimeOfDay(19.5)}>Evening</button>
+    </div>
+    <div className="sec"><span className="eb ink">View</span></div>
+    <button className={`tgl ${tour ? 'on' : ''}`} onClick={toggleTour} aria-pressed={tour}><span>Cinematic tour</span><span className="sw" /></button>
+    <button className={`tgl ${photoreal ? 'on' : ''}`} onClick={togglePhotoreal} aria-pressed={photoreal}>
+      <span>Photorealistic 3D{key ? '' : ' · needs Google key'}</span><span className="sw" />
+    </button>
+  </>;
 }
 
 export function Controls({ hidden }: { hidden: boolean }) {
