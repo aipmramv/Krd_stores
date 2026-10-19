@@ -6,7 +6,7 @@ import { Reports } from './components/pages/Reports';
 import { Controls, Crumbs, Loading, MoveBanner, Rail, Timeline, Toast } from './components/StageChrome';
 import { ModuleTabs, TopBar } from './components/TopBar';
 import { MODULES } from './data/sample';
-import { mapEngine } from './map/mapEngine';
+import { globe } from './globe/globe';
 import { escape, go, openPalette } from './state/actions';
 import { getState, useApp } from './state/store';
 import { threeEngine } from './three/engine';
@@ -28,35 +28,34 @@ function useKeyboard() {
 }
 
 export function App() {
-  const screen = useApp(s => s.screen), stage = useApp(s => s.stage), fade = useApp(s => s.fade);
-  const mapRef = useRef<HTMLDivElement>(null), threeRef = useRef<HTMLDivElement>(null);
-  const labelsRef = useRef<HTMLDivElement>(null), radialRef = useRef<HTMLDivElement>(null);
+  const screen = useApp(s => s.screen), stage = useApp(s => s.stage);
+  const globeRef = useRef<HTMLDivElement>(null), globeOvRef = useRef<HTMLDivElement>(null), creditsRef = useRef<HTMLDivElement>(null);
+  const threeRef = useRef<HTMLDivElement>(null), labelsRef = useRef<HTMLDivElement>(null), radialRef = useRef<HTMLDivElement>(null);
   useLayout();
   useKeyboard();
 
   useEffect(() => {
     // Each engine starts independently, so a WebGL or network failure in one never blanks the app.
-    try { mapEngine.init(mapRef.current!); } catch (e) { console.error('Map failed to start', e); }
-    try { threeEngine.init(threeRef.current!, labelsRef.current!, radialRef.current!); } catch (e) { console.error('3D view failed to start', e); }
+    try { globe.init(globeRef.current!, globeOvRef.current!, creditsRef.current!); } catch (e) { console.error('Globe failed to start', e); }
+    try { threeEngine.init(threeRef.current!, labelsRef.current!, radialRef.current!); } catch (e) { console.error('Store view failed to start', e); }
   }, []);
 
   // Drive the imperative engines once the visible surface has been committed to the DOM.
   useEffect(() => {
-    if (stage === 'three') { void threeEngine.enter({ handoff: getState().fade === 'out' }); return; }
-    if (getState().fade !== 'in') threeEngine.leave();
-    if (stage === 'map') mapEngine.show(screen);
+    if (stage === 'globe') { threeEngine.leave(); globe.show(screen); }
+    else if (stage === 'three') threeEngine.enter();
+    else threeEngine.leave();
   }, [screen, stage]);
-  useEffect(() => { if (stage === 'map' && !fade) threeEngine.leave(); }, [stage, fade]);
 
   const isPage = stage === 'page';
   return (
     <div id="app">
       <TopBar />
       <main id="stage">
-        {/* During the map ↔ 3D handoff both surfaces are shown and the map cross-fades above the 3D view. */}
-        <div id="three" ref={threeRef} className={`view${stage === 'three' || fade === 'in' ? '' : ' hidden'}`} />
-        <div id="map" ref={mapRef} className={`view${stage === 'map' || fade === 'out' ? '' : ' hidden'}${fade ? ' fade-' + fade : ''}`} />
-        <div id="labels" ref={labelsRef} className={stage === 'three' && !fade ? '' : 'hidden'} />
+        <div id="globe" ref={globeRef} className={`view${stage === 'globe' ? '' : ' hidden'}`} />
+        <div id="globe-ov" ref={globeOvRef} className={stage === 'globe' ? '' : 'hidden'} />
+        <div id="three" ref={threeRef} className={`view${stage === 'three' ? '' : ' hidden'}`} />
+        <div id="labels" ref={labelsRef} className={stage === 'three' ? '' : 'hidden'} />
         <div id="radial" ref={radialRef} className="hidden" />
         <Loading />
         <MoveBanner />
@@ -67,7 +66,7 @@ export function App() {
         <Timeline hidden={isPage} />
         <Reports hidden={screen !== 'reports'} />
         <Mobile hidden={screen !== 'mobile'} />
-        <div id="credits" className="credits hidden" aria-label="Map data credits" />
+        <div id="credits" ref={creditsRef} className={`credits${stage === 'globe' ? '' : ' hidden'}`} aria-label="Map data credits" />
         <Toast />
       </main>
       <ModuleTabs dock />

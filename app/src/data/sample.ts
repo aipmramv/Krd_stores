@@ -14,8 +14,8 @@ export const LAYERS: Partial<Record<ScreenId, [string, string, number][]>> = {
   network: [['sites', 'Sites', 1], ['ship', 'Shipments in transit', 1], ['xfer', 'Site-to-site transfers', 1], ['alerts', 'Alerts', 1]],
   routes: [['traffic', 'Live traffic', 1], ['weather', 'Weather risk', 1], ['hubs', 'Airports and rail heads', 1]],
   shipments: [['inb', 'Inbound', 1], ['outb', 'Outbound', 1], ['trail', 'Milestone trails', 1]],
-  site: [['ctx', 'Neighbouring buildings', 1], ['img', 'Satellite ground', 1], ['trees', 'Trees', 1], ['veh', 'Vehicles', 1], ['photos', 'Photos', 1], ['lbl', 'Labels', 1], ['alerts3', 'Alerts', 1]],
-  movements: [['flows', 'Internal moves', 1], ['scrapf', 'Scrap flows', 1], ['ctx', 'Neighbouring buildings', 1], ['trees', 'Trees', 1], ['veh', 'Vehicles', 1], ['lbl', 'Labels', 1]],
+  site: [['photos', 'Photos', 1], ['lbl', 'Facility labels', 1], ['alerts3', 'Alerts', 1]],
+  movements: [['flows', 'Internal moves', 1], ['scrapf', 'Scrap flows', 1], ['lbl', 'Facility labels', 1]],
   store: [['ghost', 'Planned inbound', 1], ['resv', 'Reservations', 1], ['exc', 'Exceptions', 1], ['lbl', 'Labels', 1]],
 };
 

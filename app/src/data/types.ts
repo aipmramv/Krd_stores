@@ -24,6 +24,8 @@ export interface Facility {
   floors?: [name: string, space: string][];
   /** Index of the floor holding the electronics store. */
   storeFloor?: number;
+  /** Approximate position: metres east and north of the site coordinate. Replace with surveyed positions. */
+  at?: [east: number, north: number];
   /** Placed by the app instead of matched to OSM: a Blender model or an open yard. */
   modelled?: 'test_tower' | 'yard';
 }

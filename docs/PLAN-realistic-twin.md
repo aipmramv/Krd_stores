@@ -1,5 +1,9 @@
 # KTEC Materials Twin — realistic sites plan
 
+> **Update:** maps and sites now run on CesiumJS + Cesium ion only (imagery, Cesium World Terrain,
+> Cesium OSM Buildings, Google Photorealistic 3D Tiles via ion asset 2275207). The OpenStreetMap/Overpass,
+> Esri, MapLibre and Google-key paths described below were removed; the store interior stays in three.js.
+
 Goal: the four key KONE sites in India, shown on the map and as immersive, realistic 3D sites,
 with one continuous camera motion from the map down into each site.
 

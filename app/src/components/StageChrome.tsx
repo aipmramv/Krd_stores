@@ -6,9 +6,9 @@ import { primary, SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { ScreenId } from '../data/types';
 import {
-  cancelMove, go, goLive, toggleMapTilt, resetView, setBase, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, togglePhotoreal, toggleRail, toggleTour, zoom,
+  cancelMove, go, goLive, toggleMapTilt, resetView, setBase, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePhotoreal, toggleRail, toggleTour, zoom,
 } from '../state/actions';
-import { isOn, MAP_SCREENS, THREE_SCREENS, useApp } from '../state/store';
+import { isOn, MAP_SCREENS, SITE_SCREENS, useApp } from '../state/store';
 
 export function Crumbs({ hidden }: { hidden: boolean }) {
   const s = useApp(x => x);
@@ -54,7 +54,7 @@ export function Rail({ hidden }: { hidden: boolean }) {
             <div className="sec"><span className="eb ink">Base map</span></div>
             <div className="seg">
               <button className={s.base === 'sat' ? 'on' : ''} onClick={() => setBase('sat')}>Satellite</button>
-              <button className={s.base === 'osm' ? 'on' : ''} onClick={() => setBase('osm')}>Streets</button>
+              <button className={s.base === 'roads' ? 'on' : ''} onClick={() => setBase('roads')}>Roads</button>
             </div>
           </>}
           <div className="sec"><span className="eb ink">Layers</span></div>
@@ -74,10 +74,6 @@ export function Rail({ hidden }: { hidden: boolean }) {
               <div><i style={{ background: '#C8312B' }} />Exception</div>
             </div>
           </>}
-          {scr === 'site' && <>
-            <div className="sec"><span className="eb ink">{primary(SITE_BY_ID[s.site]).n}</span></div>
-            <button className={`tgl ${s.peel ? 'on' : ''}`} onClick={togglePeel} aria-pressed={s.peel}><span>Peel floors open</span><span className="sw" /></button>
-          </>}
           {(scr === 'site' || scr === 'movements') && <SunAndView />}
           <div className="sec"><span className="eb ink">Filters</span></div>
           <div className="field"><span>Project</span><b>All projects</b></div>
@@ -94,7 +90,7 @@ const istNow = () => { const d = new Date(); return (d.getUTCHours() + d.getUTCM
 
 /** Sun position by time of day, cinematic tour and the optional photorealistic mode. */
 function SunAndView() {
-  const tod = useApp(s => s.tod), tour = useApp(s => s.tour), photoreal = useApp(s => s.photoreal), key = useApp(s => s.googleKey || s.cesiumToken);
+  const tod = useApp(s => s.tod), tour = useApp(s => s.tour), photoreal = useApp(s => s.photoreal), key = useApp(s => s.cesiumToken);
   const h = tod ?? istNow();
   return <>
     <div className="sec"><span className="eb ink">Sun and time of day · IST</span></div>
@@ -109,7 +105,7 @@ function SunAndView() {
     <div className="sec"><span className="eb ink">View</span></div>
     <button className={`tgl ${tour ? 'on' : ''}`} onClick={toggleTour} aria-pressed={tour}><span>Cinematic tour</span><span className="sw" /></button>
     <button className={`tgl ${photoreal ? 'on' : ''}`} onClick={togglePhotoreal} aria-pressed={photoreal}>
-      <span>Photorealistic 3D{key ? '' : ' · needs a token (Display)'}</span><span className="sw" />
+      <span>Google photorealistic 3D{key ? '' : ' · needs Cesium token'}</span><span className="sw" />
     </button>
   </>;
 }
@@ -124,7 +120,7 @@ export function Controls({ hidden }: { hidden: boolean }) {
       <button className="t" onClick={resetView} aria-label="Reset view">Fit</button>
       {isMap
         ? <button className={`t${tilt ? ' on' : ''}`} onClick={toggleMapTilt} aria-pressed={tilt} title="Tilt the map into 3D: buildings and terrain">3D</button>
-        : <button className={`t${THREE_SCREENS.includes(screen) ? '' : ' hidden'}`} onClick={toggleDim}>{dim}</button>}
+        : <button className="t" onClick={toggleDim} title={SITE_SCREENS.includes(screen) ? 'Oblique 3D or straight-down view' : undefined}>{dim}</button>}
     </div>
   );
 }

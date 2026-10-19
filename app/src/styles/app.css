@@ -183,11 +183,17 @@ input[type=range]::-moz-range-track{height:.375rem;background:#C4C7CD;border-rad
 input[type=range]::-moz-range-thumb{width:1.5rem;height:1.5rem;border-radius:50%;background:#1450F5;border:3px solid #fff}
 
 /* Leaflet custom */
-/* MapLibre */
-#map{background:#1A1C20}
-.maplibregl-map{font-family:var(--font-sans)}
-.maplibregl-ctrl-attrib{font-size:.625rem}
-.mk{width:0;height:0}
+/* Cesium globe and its HTML overlays */
+#globe{background:#141414}
+#globe .cesium-viewer,#globe .cesium-widget{width:100%;height:100%}
+#globe-ov{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
+.mk{position:absolute;left:0;top:0;width:0;height:0;pointer-events:auto;will-change:transform}
+.mk.at-top>.lbl{transform:translate(-50%,calc(-100% - 6px))}
+.mk.at-mid>.lbl{transform:translate(-50%,-50%)}
+.mk>.lbl{position:absolute;left:0;top:0}
+.mk>.lbl u{text-decoration:none;color:#1450F5;font-weight:600}
+.mk>.lbl.on u{color:#fff}
+.ionstatus{margin:.25rem 0 0;font-size:.75rem;color:#4A4D55}.ionstatus.error{color:#C8312B}.ionstatus.ok{color:#1B7F4E}
 .pin{position:relative;width:0;height:0;cursor:pointer}
 .pin .pd{position:absolute;left:-.5rem;top:-.5rem;width:1rem;height:1rem;border-radius:50%;background:#1450F5;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .pin.sel .pd{box-shadow:0 0 0 .375rem rgba(255,255,255,.55),0 1px 4px rgba(0,0,0,.4)}
@@ -281,11 +287,7 @@ html.portrait .rep main{padding:1.25rem}
 .menu button:hover{background:#EFF1F4}
 .menu .eb{display:block;padding:.75rem 1rem .25rem;color:#767A82}
 
-/* ---------- Realistic sites: handoff fades, photos, sun and key form ---------- */
-#map.fade-out{z-index:1;animation:fadeout .9s ease-in forwards;pointer-events:none}
-#map.fade-in{z-index:1;animation:fadein .9s ease-out both}
-@keyframes fadeout{0%{opacity:1}25%{opacity:1}100%{opacity:0}}
-@keyframes fadein{0%{opacity:0}100%{opacity:1}}
+/* ---------- Sites: photos, sun and token form ---------- */
 .lbl.photo{padding:3px;min-height:0;border-radius:2px}
 .lbl.photo img{display:block;width:3rem;height:3rem;object-fit:cover}
 .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:.375rem;padding:0 1.25rem 1rem}
@@ -315,6 +317,9 @@ html.portrait .rep main{padding:1.25rem}
 .loading{top:auto;bottom:calc(var(--bot) + 2rem);transform:translateX(-50%);background:rgba(20,20,20,.78);color:#fff;padding:.625rem 1rem}
 html.portrait .loading{bottom:calc(var(--bot) + var(--sheet) + 2rem)}
 
-/* Data credits for photorealistic tiles (required by Google's terms). */
-.credits{position:absolute;left:calc(var(--railw) + 2*var(--g));bottom:calc(var(--bot) + .25rem);z-index:14;max-width:40%;padding:.125rem .5rem;background:rgba(255,255,255,.85);font-size:.625rem;color:#4A4D55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+/* Cesium ion and data credits (required while the globe is shown). */
+.credits{position:absolute;left:calc(var(--railw) + 2*var(--g));bottom:calc(var(--bot) + .25rem);z-index:14;max-width:min(60%,40rem);padding:.125rem .5rem;background:rgba(255,255,255,.88);font-size:.625rem;color:#4A4D55;overflow:hidden}
+.credits .cesium-credit-logoContainer img{height:16px}
+.credits .cesium-credit-textContainer{display:inline}
+.credits a{color:#4A4D55}
 html.portrait .credits{left:var(--g);bottom:calc(var(--bot) + var(--sheet) + .25rem)}

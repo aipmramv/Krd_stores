@@ -2,16 +2,16 @@ import { useSyncExternalStore } from 'react';
 import { FEATURED_BIN } from '../data/storeModel';
 import type { Bin, ColorMode, ScreenId } from '../data/types';
 
-export type Stage = 'map' | 'three' | 'page';
+/** 'globe' is the Cesium map and site view; 'three' is the store interior; 'page' is a full-screen page. */
+export type Stage = 'globe' | 'three' | 'page';
 export type Overlay = null | { kind: 'palette'; q: string } | { kind: 'display'; top: number; right: number } | { kind: 'photo'; site: string; i: number };
 
-export interface Photo { id: string; title: string; thumb: string; full: string; page: string; credit: string; licence: string; ll: [number, number] | null; source: 'Wikimedia Commons' | 'Mapillary' | 'Google Places' | 'Google Street View' }
+export interface Photo { id: string; title: string; thumb: string; full: string; page: string; credit: string; licence: string; ll: [number, number] | null; source: 'Wikimedia Commons' | 'Mapillary' }
 export type PhotoState = { status: 'loading' } | { status: 'ready'; items: Photo[] } | { status: 'error' };
-export interface SiteStats { buildings: number; trees: number; roads: number; source: 'osm' | 'stylised'; imagery: 'loading' | 'ok' | 'unavailable' }
 
 export interface AppState {
   screen: ScreenId;
-  /** Which surface is visible. Normally follows the screen, but stays on the map while flying into a site. */
+  /** Which surface is visible. */
   stage: Stage;
   site: string;
   route: number;
@@ -30,56 +30,46 @@ export interface AppState {
   sheet: 'peek' | 'half' | 'full';
   railOpen: boolean;
   drawerOpen: boolean;
-  base: 'sat' | 'osm';
+  base: 'sat' | 'roads';
   toast: { msg: string; n: number } | null;
   overlay: Overlay;
   loading: boolean;
   /** Time of day in hours IST for the sun; null follows the live clock. */
   tod: number | null;
-  /** Map cross-fade during the map ↔ 3D handoff. */
-  fade: 'in' | 'out' | null;
-  /** Map screens tilted into 3D (buildings and terrain). */
+  /** Globe camera tilted into an oblique 3D view (false: looking straight down). */
   mapTilt: boolean;
   /** Cinematic auto-orbit in the 3D site. */
   tour: boolean;
-  /** Render the site from Google Photorealistic 3D Tiles (needs a key). */
+  /** Show Google Photorealistic 3D Tiles when zoomed in (otherwise Cesium OSM Buildings). */
   photoreal: boolean;
-  googleKey: string;
-  /** Cesium ion access token: Google Photorealistic 3D Tiles through Cesium, no Google billing needed. */
+  /** Cesium ion access token: imagery, terrain, buildings and photorealistic tiles all come through it. */
   cesiumToken: string;
-  /** Own 3D Tiles capture (e.g. a drone survey) to show instead of Google's; `?tiles=` or Display. */
-  tilesUrl: string;
+  /** Status of the Cesium ion services, for messages and the Display menu. */
+  ion: 'none' | 'loading' | 'ok' | 'error';
   photos: Record<string, PhotoState>;
-  siteStats: Record<string, SiteStats>;
   /** Bumped on every edit so subscribers can cheaply detect changes. */
   rev: number;
 }
 
 export const MAP_SCREENS: ScreenId[] = ['network', 'routes', 'shipments'];
-export const THREE_SCREENS: ScreenId[] = ['site', 'movements', 'store'];
-export const stageFor = (s: ScreenId): Stage => (MAP_SCREENS.includes(s) ? 'map' : THREE_SCREENS.includes(s) ? 'three' : 'page');
+export const SITE_SCREENS: ScreenId[] = ['site', 'movements'];
+/** Screens drawn on the Cesium globe. */
+export const GLOBE_SCREENS: ScreenId[] = [...MAP_SCREENS, ...SITE_SCREENS];
+export const stageFor = (s: ScreenId): Stage => (GLOBE_SCREENS.includes(s) ? 'globe' : s === 'store' ? 'three' : 'page');
 
-const KEY_STORE = { google: 'ktec-twin.googleKey', cesium: 'ktec-twin.cesiumToken', tiles: 'ktec-twin.tilesUrl' };
-type KeyName = keyof typeof KEY_STORE;
-export function readStoredKey(name: KeyName = 'google'): string {
-  try { return localStorage.getItem(KEY_STORE[name]) ?? ''; } catch { return ''; }
+const TOKEN_STORE = 'ktec-twin.cesiumToken';
+export function readStoredToken(): string {
+  try { return localStorage.getItem(TOKEN_STORE) ?? ''; } catch { return ''; }
 }
-export function storeKey(k: string, name: KeyName = 'google') {
-  try { if (k) localStorage.setItem(KEY_STORE[name], k); else localStorage.removeItem(KEY_STORE[name]); } catch { /* private mode */ }
+export function storeToken(t: string) {
+  try { if (t) localStorage.setItem(TOKEN_STORE, t); else localStorage.removeItem(TOKEN_STORE); } catch { /* private mode */ }
 }
-
-/** Where photorealistic tiles come from: Cesium ion first (works without Google billing), else a Google key. */
-export type TileSource = { kind: 'url'; url: string } | { kind: 'ion'; token: string } | { kind: 'google'; key: string };
-export const tileSource = (s: AppState): TileSource | null =>
-  s.tilesUrl ? { kind: 'url', url: s.tilesUrl } : s.cesiumToken ? { kind: 'ion', token: s.cesiumToken } : s.googleKey ? { kind: 'google', key: s.googleKey } : null;
 
 function initialState(): AppState {
   const p = new URLSearchParams(location.search);
   const screen = (p.get('screen') as ScreenId) || 'network';
   const site = p.get('site') ?? '';
-  const googleKey = readStoredKey() || (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '');
-  const cesiumToken = readStoredKey('cesium') || (import.meta.env.VITE_CESIUM_ION_TOKEN ?? '');
-  const tilesUrl = p.get('tiles') || readStoredKey('tiles');
+  const cesiumToken = readStoredToken() || (import.meta.env.VITE_CESIUM_ION_TOKEN ?? '');
   const w = innerWidth, h = innerHeight;
   const portrait = h > w * 1.05 || w < 820;
   return {
@@ -87,8 +77,8 @@ function initialState(): AppState {
     bin: { ...FEATURED_BIN }, bld: null, peel: true, dim: '3D', moveFrom: null,
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     base: 'sat', toast: null, overlay: null, loading: false, rev: 0,
-    tod: null, fade: null, tour: false, mapTilt: false, photoreal: !!(googleKey || cesiumToken || tilesUrl), googleKey, cesiumToken, tilesUrl,
-    photos: {}, siteStats: {},
+    tod: null, tour: false, mapTilt: false, photoreal: true, cesiumToken, ion: cesiumToken ? 'loading' : 'none',
+    photos: {},
   };
 }
 
