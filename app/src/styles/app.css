@@ -183,10 +183,11 @@ input[type=range]::-moz-range-track{height:.375rem;background:#C4C7CD;border-rad
 input[type=range]::-moz-range-thumb{width:1.5rem;height:1.5rem;border-radius:50%;background:#1450F5;border:3px solid #fff}
 
 /* Leaflet custom */
-.leaflet-container{background:#1A1C20;font-family:var(--font-sans)}
-.leaflet-bottom.leaflet-left{left:calc(var(--railw) + 2*var(--g));bottom:var(--bot)}
-html.portrait .leaflet-bottom.leaflet-left{left:var(--g);bottom:calc(var(--bot) + var(--sheet) + var(--g))}
-.leaflet-control-attribution{font-size:.625rem!important;background:rgba(255,255,255,.85)!important}
+/* MapLibre */
+#map{background:#1A1C20}
+.maplibregl-map{font-family:var(--font-sans)}
+.maplibregl-ctrl-attrib{font-size:.625rem}
+.mk{width:0;height:0}
 .pin{position:relative;width:0;height:0;cursor:pointer}
 .pin .pd{position:absolute;left:-.5rem;top:-.5rem;width:1rem;height:1rem;border-radius:50%;background:#1450F5;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .pin.sel .pd{box-shadow:0 0 0 .375rem rgba(255,255,255,.55),0 1px 4px rgba(0,0,0,.4)}

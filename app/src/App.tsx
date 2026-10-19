@@ -35,8 +35,9 @@ export function App() {
   useKeyboard();
 
   useEffect(() => {
-    mapEngine.init(mapRef.current!);
-    threeEngine.init(threeRef.current!, labelsRef.current!, radialRef.current!);
+    // Each engine starts independently, so a WebGL or network failure in one never blanks the app.
+    try { mapEngine.init(mapRef.current!); } catch (e) { console.error('Map failed to start', e); }
+    try { threeEngine.init(threeRef.current!, labelsRef.current!, radialRef.current!); } catch (e) { console.error('3D view failed to start', e); }
   }, []);
 
   // Drive the imperative engines once the visible surface has been committed to the DOM.

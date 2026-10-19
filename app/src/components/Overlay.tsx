@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SITE_BY_ID, SITES } from '../data/sites';
 import type { ScreenId } from '../data/types';
-import { closeOverlay, go, openPalette, openPhoto, selectSite, setCesiumToken, setGoogleKey, setKiosk, viewPhotoIn3D } from '../state/actions';
+import { closeOverlay, go, openPalette, openPhoto, selectSite, setCesiumToken, setGoogleKey, setTilesUrl, setKiosk, viewPhotoIn3D } from '../state/actions';
 import { useApp } from '../state/store';
 
 interface PalItem { title: string; sub: string; hint: string; run: () => void }
@@ -54,7 +54,8 @@ function Palette({ q }: { q: string }) {
 
 function DisplayMenu({ top, right }: { top: number; right: number }) {
   const kiosk = useApp(s => s.kiosk), key = useApp(s => s.googleKey), ion = useApp(s => s.cesiumToken);
-  const [draft, setDraft] = useState(key), [ionDraft, setIonDraft] = useState(ion);
+  const tilesUrl = useApp(s => s.tilesUrl);
+  const [draft, setDraft] = useState(key), [ionDraft, setIonDraft] = useState(ion), [urlDraft, setUrlDraft] = useState(tilesUrl);
   return (
     <div className="menu" style={{ top, right }} role="menu">
       <span className="eb">Touch density</span>
@@ -70,6 +71,11 @@ function DisplayMenu({ top, right }: { top: number; right: number }) {
         <label htmlFor="gkey">Google Maps Platform key with Map Tiles API, Places API (New) and Street View Static API. Stored only on this device.</label>
         <div><input id="gkey" type="password" autoComplete="off" value={draft} onChange={e => setDraft(e.target.value)} placeholder="AIza…" />
           <button type="submit" className="btn primary">{draft ? 'Save' : 'Clear'}</button></div>
+      </form>
+      <form className="keyform" onSubmit={e => { e.preventDefault(); setTilesUrl(urlDraft); }}>
+        <label htmlFor="tilesurl">Own 3D capture (drone survey) as a 3D Tiles tileset.json URL. Used before Cesium and Google.</label>
+        <div><input id="tilesurl" type="url" autoComplete="off" value={urlDraft} onChange={e => setUrlDraft(e.target.value)} placeholder="https://…/tileset.json" />
+          <button type="submit" className="btn primary">{urlDraft ? 'Save' : 'Clear'}</button></div>
       </form>
       <span className="eb">Preview</span>
       <button onClick={() => { closeOverlay(); window.open('layouts.html', '_blank'); }}><span>All screen sizes side by side</span><span>↗</span></button>

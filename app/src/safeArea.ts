@@ -3,7 +3,9 @@
 export interface Rect { l: number; t: number; r: number; b: number }
 
 export function stageSafeArea(): Rect {
-  const stage = document.getElementById('stage')!, base = stage.getBoundingClientRect();
+  const stage = document.getElementById('stage');
+  if (!stage) return { l: 0, t: 0, r: innerWidth, b: innerHeight };
+  const base = stage.getBoundingClientRect();
   const H = document.documentElement, g = parseFloat(getComputedStyle(H).fontSize);
   const a = { l: g * .5, t: g * .5, r: base.width - g * .5, b: base.height - g * .5 };
   const rel = (id: string) => {
@@ -24,12 +26,13 @@ export function stageSafeArea(): Rect {
 
 /** Offset of the safe-area centre from the stage centre. */
 export function safeCentreOffset(): [number, number] {
-  const stage = document.getElementById('stage')!;
+  const stage = document.getElementById('stage');
+  if (!stage) return [0, 0];
   const a = stageSafeArea();
   return [(a.l + a.r) / 2 - stage.clientWidth / 2, (a.t + a.b) / 2 - stage.clientHeight / 2];
 }
 
-/** Zoom level of the map at the moment of the map ↔ 3D handoff. */
-export const HANDOFF_ZOOM = 17;
-/** Ground metres per CSS pixel on a Web Mercator map at this latitude and zoom. */
-export const metresPerPixel = (lat: number, zoom: number) => 156543.03392 * Math.cos(lat * Math.PI / 180) / 2 ** zoom;
+/** MapLibre zoom level of the map at the moment of the map ↔ 3D handoff (same scale as zoom-17 raster tiles). */
+export const HANDOFF_ZOOM = 16;
+/** Ground metres per CSS pixel on a MapLibre (512 px world) Web Mercator map at this latitude and zoom. */
+export const metresPerPixel = (lat: number, zoom: number) => 78271.51696 * Math.cos(lat * Math.PI / 180) / 2 ** zoom;

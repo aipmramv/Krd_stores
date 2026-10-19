@@ -9,7 +9,7 @@ export const SITES: Site[] = [
   {
     id: 'ktec', name: 'KTEC Chennai', short: 'KTEC Chennai', type: 'R&D centre · Ambattur', kind: 'rnd',
     address: 'Tower-B, One India Bulls Tech Park, Plot No. 14, 3rd Main Rd, Sai Nagar, Ambattur Industrial Estate, Chennai, Tamil Nadu 600058',
-    ll: [13.0905, 80.1613], space: 78, value: '₹152 Cr', ship: 37, left: false,
+    ll: [13.0905, 80.1613], ellH: -74, space: 78, value: '₹152 Cr', ship: 37, left: false,
     facilities: [
       { k: 'main', n: 'Tower-B · KTEC', s: 'Labs, prototype store, engineering', info: 'KTEC labs, prototype and electronics store on the lower floors, engineering above', col: '#A1B9FB', facade: 'glass',
         floors: [['Lower floors · labs and electronics store', '84%'], ['Middle floors · engineering', '61%'], ['Upper floors · offices', '—']], storeFloor: 0 },
@@ -33,7 +33,7 @@ export const SITES: Site[] = [
   {
     id: 'isu', name: 'KONE ISU & Test Tower', short: 'ISU Sriperumbudur', type: 'Factory and test tower · SIPCOT Sriperumbudur', kind: 'factory',
     address: 'KONE Elevator India Private Limited Factory, Plot No: A 28, SIPCOT Industrial Park, Irumbedu Main Road, Pillaipakkam, Sriperumbudur Taluk, Kancheepuram District, Tamil Nadu 602105',
-    ll: [12.9868, 79.9922], space: 71, value: '₹212 Cr', ship: 44, left: true,
+    ll: [12.9868, 79.9922], ellH: -45, space: 71, value: '₹212 Cr', ship: 44, left: true,
     facilities: [
       { k: 'main', n: 'ISU production hall', s: 'Assembly lines · mezzanine store', info: 'Elevator and door-operator assembly · electronics store on the mezzanine', col: '#A1B9FB', facade: 'metal',
         floors: [['Ground · assembly lines', '72%'], ['Mezzanine · electronics store', '84%'], ['Roof · solar and plant', '—']], storeFloor: 1 },
@@ -59,7 +59,7 @@ export const SITES: Site[] = [
   {
     id: 'dhl', name: 'KONE – DHL Warehouse', short: 'DHL Oragadam', type: '3PL warehouse · IndoSpace Oragadam', kind: 'warehouse',
     address: 'DHL Supply Chain India, S.F. No. 2/5, IndoSpace Oragadam 3, ILP 3 India 13 Private Limited, Ezhichur Road, Oragadam, Kancheepuram District, Tamil Nadu 631606',
-    ll: [12.8105, 79.9575], space: 83, value: '₹96 Cr', ship: 52, left: 'b',
+    ll: [12.8105, 79.9575], ellH: -25, space: 83, value: '₹96 Cr', ship: 52, left: 'b',
     facilities: [
       { k: 'main', n: 'DHL KONE distribution centre', s: 'Racking · small-parts mezzanine', info: 'Pallet racking on the ground floor, small parts and electronics on the mezzanine', col: '#A1B9FB', facade: 'metal',
         floors: [['Ground · pallet racking', '86%'], ['Mezzanine · small parts and electronics', '84%'], ['Roof · solar', '—']], storeFloor: 1 },
@@ -78,7 +78,7 @@ export const SITES: Site[] = [
   {
     id: 'pnq', name: 'KTEC Pune', short: 'KTEC Pune', type: 'R&D centre · Aundh', kind: 'rnd',
     address: 'KONE Technology & Engineering Center (KTEC), Westend Icon, Westend Mall Campus, Ward No. 8, Wireless Colony, Aundh, Pune, Maharashtra 411067',
-    ll: [18.5631, 73.8078], space: 64, value: '₹71 Cr', ship: 19, left: false,
+    ll: [18.5631, 73.8078], ellH: 497, space: 64, value: '₹71 Cr', ship: 19, left: false,
     facilities: [
       { k: 'main', n: 'Westend Icon · KTEC', s: 'Labs and engineering', info: 'KTEC Pune labs and stores on the lower floors, engineering and offices above', col: '#A1B9FB', facade: 'glass',
         floors: [['Lower floors · labs and electronics store', '78%'], ['Middle floors · engineering', '58%'], ['Upper floors · offices', '—']], storeFloor: 0 },

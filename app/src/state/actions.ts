@@ -74,14 +74,14 @@ export function selectSite(id: string) {
   loadPhotos(id);
   if (isSiteScreen(s.screen) && s.stage === 'three') { void travel(id); return; }
   setState({ site: id, bld: null });
-  if (isMap(s.screen)) mapEngine.flyTo(SITE_BY_ID[id].ll, 9);
+  if (isMap(s.screen)) mapEngine.flyTo(SITE_BY_ID[id].ll, 8);
 }
 /** Map pin click: select the site and return to the network view if needed. */
 export function pinSite(id: string) {
   setState({ site: id });
   loadPhotos(id);
   if (getState().screen !== 'network') go('network');
-  else mapEngine.flyTo(SITE_BY_ID[id].ll, 9);
+  else mapEngine.flyTo(SITE_BY_ID[id].ll, 8);
 }
 export const selectRoute = (i: number) => setState({ route: i });
 export function selectShip(i: number) { setState({ ship: i }); mapEngine.fitScreen(); }
@@ -103,6 +103,7 @@ export const cycleSheet = () => setState(s => ({ sheet: ({ peek: 'half', half: '
 export const setTime = (t: number) => setState({ t });
 export const goLive = () => setState({ t: 0, tod: null });
 export const setTimeOfDay = (tod: number | null) => setState({ tod });
+export const toggleMapTilt = () => setState(s => ({ mapTilt: !s.mapTilt }));
 export const toggleTour = () => setState(s => ({ tour: !s.tour }));
 export function togglePhotoreal() {
   const s = getState();
@@ -121,6 +122,12 @@ export function setCesiumToken(t: string) {
   storeKey(token, 'cesium');
   setState(s => ({ cesiumToken: token, photoreal: !!(token || s.googleKey), overlay: null }));
   toast(token ? 'Cesium ion token saved on this device · photorealistic 3D on' : 'Cesium ion token removed');
+}
+export function setTilesUrl(u: string) {
+  const url = u.trim();
+  storeKey(url, 'tiles');
+  setState(s => ({ tilesUrl: url, photoreal: !!(url || s.cesiumToken || s.googleKey), overlay: null }));
+  toast(url ? 'Your 3D capture will show in the site twin' : '3D capture URL removed');
 }
 export const setKiosk = (on: boolean) => { setState({ kiosk: on, overlay: null }); requestAnimationFrame(() => threeEngine.refreshRadial()); };
 export const openPalette = (q = '') => setState({ overlay: { kind: 'palette', q } });

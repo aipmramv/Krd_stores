@@ -37,6 +37,8 @@ export interface Site {
   kind: SiteKind;
   address: string;
   ll: LatLng;
+  /** Ground height above the WGS84 ellipsoid in metres (elevation + geoid undulation), to seat 3D tiles. */
+  ellH: number;
   space: number;
   value: string;
   ship: number;

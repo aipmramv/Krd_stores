@@ -346,8 +346,9 @@ class ThreeEngine {
       const [lat, lon] = site.site.ll, R = this.R;
       // The tiles renderer is only downloaded when photorealistic mode is first used.
       import('./tiles').then(({ PhotorealTiles }) => {
-        const pr = new PhotorealTiles(src, lat, lon, this.cam, R);
-        const fail = () => toast(src.kind === 'ion'
+        const pr = new PhotorealTiles(src, lat, lon, site.site.ellH, this.cam, R);
+        const fail = () => toast(src.kind === 'url' ? 'Your 3D capture could not load · check the tileset URL'
+          : src.kind === 'ion'
           ? 'Photorealistic tiles could not load · check the Cesium ion token and that Google Photorealistic 3D Tiles is in your ion assets'
           : 'Photorealistic tiles could not load · check the Google key, Map Tiles API and billing');
         pr.tiles.addEventListener('load-error', fail);

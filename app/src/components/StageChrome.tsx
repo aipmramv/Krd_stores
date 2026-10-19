@@ -6,7 +6,7 @@ import { primary, SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { ScreenId } from '../data/types';
 import {
-  cancelMove, go, goLive, resetView, setBase, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, togglePhotoreal, toggleRail, toggleTour, zoom,
+  cancelMove, go, goLive, toggleMapTilt, resetView, setBase, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, togglePhotoreal, toggleRail, toggleTour, zoom,
 } from '../state/actions';
 import { isOn, MAP_SCREENS, THREE_SCREENS, useApp } from '../state/store';
 
@@ -115,13 +115,16 @@ function SunAndView() {
 }
 
 export function Controls({ hidden }: { hidden: boolean }) {
-  const screen = useApp(s => s.screen), dim = useApp(s => s.dim);
+  const screen = useApp(s => s.screen), dim = useApp(s => s.dim), tilt = useApp(s => s.mapTilt);
+  const isMap = MAP_SCREENS.includes(screen);
   return (
     <div className={`ctrls${hidden ? ' hidden' : ''}`} id="ctrls">
       <button onClick={() => zoom(1)} aria-label="Zoom in">+</button>
       <button onClick={() => zoom(-1)} aria-label="Zoom out">−</button>
       <button className="t" onClick={resetView} aria-label="Reset view">Fit</button>
-      <button className={`t${THREE_SCREENS.includes(screen) ? '' : ' hidden'}`} onClick={toggleDim}>{dim}</button>
+      {isMap
+        ? <button className={`t${tilt ? ' on' : ''}`} onClick={toggleMapTilt} aria-pressed={tilt} title="Tilt the map into 3D: buildings and terrain">3D</button>
+        : <button className={`t${THREE_SCREENS.includes(screen) ? '' : ' hidden'}`} onClick={toggleDim}>{dim}</button>}
     </div>
   );
 }

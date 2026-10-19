@@ -5,5 +5,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   base: './',
   plugins: [react()],
-  build: { chunkSizeWarningLimit: 1200 },
+  build: {
+    chunkSizeWarningLimit: 1200,
+    // Map and 3D engines change rarely; separate chunks stay cached across app releases.
+    rollupOptions: { output: { manualChunks: { maplibre: ['maplibre-gl'], three: ['three'] } } },
+  },
 });

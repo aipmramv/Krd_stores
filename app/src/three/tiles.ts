@@ -14,34 +14,42 @@ const ION_GOOGLE_ASSET = '2275207';
 
 export class PhotorealTiles {
   readonly tiles: TilesRenderer;
+  /** Holds the tileset in scene axes: the reorientation gives X west / Z north, the scene uses X east / Z south. */
+  readonly group = new THREE.Group();
   private ray = new THREE.Raycaster();
-  private grounded = false;
+  private checks = 0;
+  private lastCheck = 0;
 
-  constructor(src: TileSource, lat: number, lon: number, camera: THREE.Camera, R: THREE.WebGLRenderer) {
-    const t = this.tiles = new TilesRenderer();
-    t.registerPlugin(src.kind === 'ion'
-      ? new CesiumIonAuthPlugin({ apiToken: src.token, assetId: ION_GOOGLE_ASSET, autoRefreshToken: true })
-      : new GoogleCloudAuthPlugin({ apiToken: src.key, autoRefreshToken: true }));
+  constructor(src: TileSource, lat: number, lon: number, ellH: number, camera: THREE.Camera, R: THREE.WebGLRenderer) {
+    const t = this.tiles = new TilesRenderer(src.kind === 'url' ? src.url : undefined);
+    if (src.kind === 'ion') t.registerPlugin(new CesiumIonAuthPlugin({ apiToken: src.token, assetId: ION_GOOGLE_ASSET, autoRefreshToken: true }));
+    if (src.kind === 'google') t.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: src.key, autoRefreshToken: true }));
     t.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: draco }));
     t.registerPlugin(new TileCompressionPlugin());
     t.registerPlugin(new UnloadTilesPlugin());
-    t.registerPlugin(new ReorientationPlugin({ lat: lat * RAD, lon: lon * RAD, height: 0, recenter: true }));
+    // Seat the site's real ground (ellipsoidal height) at y = 0.
+    t.registerPlugin(new ReorientationPlugin({ lat: lat * RAD, lon: lon * RAD, height: ellH, recenter: true }));
     t.errorTarget = 6;
     t.setCamera(camera);
     t.setResolutionFromRenderer(camera, R);
-    t.group.traverse(o => { o.receiveShadow = true; });
+    this.group.rotation.y = Math.PI;
+    this.group.add(t.group);
   }
-
-  get group() { return this.tiles.group; }
 
   update(camera: THREE.Camera, R: THREE.WebGLRenderer) {
     this.tiles.setResolutionFromRenderer(camera, R);
     this.tiles.update();
-    // Photogrammetry heights are ellipsoidal; drop the tileset so the ground at the site sits at y = 0.
-    if (!this.grounded) {
-      this.ray.set(new THREE.Vector3(0, 4000, 0), new THREE.Vector3(0, -1, 0));
+    // Fine-tune the ground once detailed tiles are in: only small corrections, so a coarse
+    // whole-earth tile can never throw the site hundreds of metres off.
+    const now = performance.now();
+    if (this.checks < 12 && this.tiles.rootTileset && now - this.lastCheck > 1500) {
+      this.lastCheck = now;
+      this.ray.set(new THREE.Vector3(0, 1500, 0), new THREE.Vector3(0, -1, 0));
       const hit = this.ray.intersectObject(this.tiles.group, true)[0];
-      if (hit) { this.tiles.group.position.y -= hit.point.y; this.grounded = true; }
+      if (hit) {
+        const y = hit.point.y - this.group.position.y;
+        if (Math.abs(y) < 60) { this.group.position.y = -y; this.checks++; }
+      }
     }
   }
 
