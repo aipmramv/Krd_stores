@@ -32,6 +32,7 @@ SITES = json.load(open(os.path.join(ROOT, 'blender', 'sites.json')))
 OUT = os.path.join(ROOT, 'app', 'public', 'models', 'sites')
 BLENDS = os.path.join(ROOT, 'blender', 'sites')
 R_BLD, R_CTX = 750, 1000
+UA = 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)'
 OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter',
             'https://overpass.osm.jp/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter']
 FACADE = {  # base colour, roughness, metallic, as in the app's procedural facades
@@ -61,14 +62,15 @@ def load_osm(site, path=None):
     body = urllib.parse.urlencode({'data': overpass_query(*site['ll'])}).encode()
     for ep in OVERPASS:
         try:
-            with urllib.request.urlopen(urllib.request.Request(ep, data=body), timeout=120) as r:
+            with urllib.request.urlopen(urllib.request.Request(ep, data=body, headers={'User-Agent': UA}), timeout=120) as r:
                 j = json.load(r)
                 if j.get('elements'):
                     print('OSM from', ep)
                     return j
         except Exception as e:  # noqa: BLE001 - try the next mirror
             print('  ', ep, 'failed:', e)
-    sys.exit(f"No OSM data for {site['id']}: pass --osm FILE or check the network")
+    print(f"No OSM data for {site['id']}: pass --osm FILE or check the network")
+    return None
 
 
 def projector(lat0, lon0):
@@ -272,10 +274,17 @@ def main():
     ap.add_argument('--export', action='store_true', help='only re-export the refined KONE buildings from the .blend')
     ap.add_argument('--osm', help='Overpass JSON file to use instead of fetching')
     a = ap.parse_args(argv)
+    done = 0
     for site in SITES if a.site == 'all' else [s for s in SITES if s['id'] == a.site]:
         if not a.export:
-            build(site, load_osm(site, a.osm))
+            osm = load_osm(site, a.osm)
+            if osm is None:
+                continue
+            build(site, osm)
         export(site)
+        done += 1
+    if not done:
+        sys.exit('No site was built')
 
 
 if __name__ == '__main__':

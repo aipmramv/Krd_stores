@@ -30,6 +30,15 @@ jobs:
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q libxrender1 libxi6 libxkbcommon0 libsm6 libgl1
           pip install -q bpy==5.2.2
+      - uses: actions/setup-node@v5
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          node-version: 22
+      - name: Fetch OpenStreetMap data (same fetcher as the Pages deploy, with retries)
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: app
+        timeout-minutes: 15
+        run: npm ci --ignore-scripts && node scripts/fetch-osm.ts
       - name: Build site files from OpenStreetMap
         if: github.event_name == 'workflow_dispatch'
         run: python blender/site_from_osm.py --site "${{ inputs.site }}"
