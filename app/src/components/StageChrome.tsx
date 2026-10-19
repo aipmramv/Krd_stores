@@ -94,7 +94,7 @@ const istNow = () => { const d = new Date(); return (d.getUTCHours() + d.getUTCM
 
 /** Sun position by time of day, cinematic tour and the optional photorealistic mode. */
 function SunAndView() {
-  const tod = useApp(s => s.tod), tour = useApp(s => s.tour), photoreal = useApp(s => s.photoreal), key = useApp(s => s.googleKey);
+  const tod = useApp(s => s.tod), tour = useApp(s => s.tour), photoreal = useApp(s => s.photoreal), key = useApp(s => s.googleKey || s.cesiumToken);
   const h = tod ?? istNow();
   return <>
     <div className="sec"><span className="eb ink">Sun and time of day · IST</span></div>
@@ -109,7 +109,7 @@ function SunAndView() {
     <div className="sec"><span className="eb ink">View</span></div>
     <button className={`tgl ${tour ? 'on' : ''}`} onClick={toggleTour} aria-pressed={tour}><span>Cinematic tour</span><span className="sw" /></button>
     <button className={`tgl ${photoreal ? 'on' : ''}`} onClick={togglePhotoreal} aria-pressed={photoreal}>
-      <span>Photorealistic 3D{key ? '' : ' · needs Google key'}</span><span className="sw" />
+      <span>Photorealistic 3D{key ? '' : ' · needs a token (Display)'}</span><span className="sw" />
     </button>
   </>;
 }

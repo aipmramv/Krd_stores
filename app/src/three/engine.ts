@@ -8,7 +8,7 @@ import { EXCEPTION_BIN, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
 import { HANDOFF_ZOOM, metresPerPixel, stageSafeArea, type Rect } from '../safeArea';
 import { binAction, completeMove, go, openPhoto, selectBin, selectBuilding, toast } from '../state/actions';
-import { getState, isOn, setState, subscribe, THREE_SCREENS } from '../state/store';
+import { getState, isOn, setState, subscribe, THREE_SCREENS, tileSource } from '../state/store';
 import { Labels } from './labels';
 import { buildSite, setHovered, siteCached, type SiteScene } from './site';
 import { binPos, buildStore, drawMove, recolorBins, ROWZ, X0 } from './store3d';
@@ -161,7 +161,10 @@ class ThreeEngine {
         sun.target.position.copy(this.ctl.target);
         sun.position.add(this.ctl.target);
       }
-      if (this.tiles && this.tiles.id === site.site.id) this.tiles.pr.update(this.cam, this.R);
+      if (this.tiles && this.tiles.id.startsWith(site.site.id + ':')) {
+        this.tiles.pr.update(this.cam, this.R);
+        if (now - this.creditsAt > 2000) { this.creditsAt = now; this.showCredits(); }
+      }
     } else this.R.toneMappingExposure = 1.05;
     this.active.userData.tick?.(t);
     this.R.render(this.active, this.cam);
@@ -334,23 +337,39 @@ class ThreeEngine {
   private applyPhotoreal() {
     const s = getState(), site = this.site;
     if (!site || !this.R) return;
-    const want = s.photoreal && !!s.googleKey;
-    if (!want) this.dropTiles();
-    else if (this.tiles?.id !== site.site.id && !this.tilesLoading) {
+    const src = s.photoreal ? tileSource(s) : null;
+    const id = src ? `${site.site.id}:${src.kind}` : '';
+    if (!src) this.dropTiles();
+    else if (this.tiles?.id !== id && !this.tilesLoading) {
       this.dropTiles();
       this.tilesLoading = true;
       const [lat, lon] = site.site.ll, R = this.R;
       // The tiles renderer is only downloaded when photorealistic mode is first used.
       import('./tiles').then(({ PhotorealTiles }) => {
-        const pr = new PhotorealTiles(s.googleKey, lat, lon, this.cam, R);
-        pr.tiles.addEventListener('load-error', () => toast('Photorealistic tiles could not load · check the Google key and Map Tiles API access'));
+        const pr = new PhotorealTiles(src, lat, lon, this.cam, R);
+        const fail = () => toast(src.kind === 'ion'
+          ? 'Photorealistic tiles could not load · check the Cesium ion token and that Google Photorealistic 3D Tiles is in your ion assets'
+          : 'Photorealistic tiles could not load · check the Google key, Map Tiles API and billing');
+        pr.tiles.addEventListener('load-error', fail);
+        // Auth failures can retry quietly; if nothing has loaded after 20 s, say so.
+        setTimeout(() => { if (this.tiles?.pr === pr && !pr.tiles.rootTileset) fail(); }, 20000);
         site.sc.add(pr.group);
-        this.tiles = { id: site.site.id, pr };
+        this.tiles = { id, pr };
         site.setPhotoreal(true);
       }).catch(() => { toast('Photorealistic tiles are unavailable'); setState({ photoreal: false }); })
         .finally(() => { this.tilesLoading = false; });
     }
-    site.setPhotoreal(want && this.tiles?.id === site.site.id);
+    site.setPhotoreal(!!src && this.tiles?.id === id);
+    this.showCredits();
+  }
+  private creditsAt = 0;
+  /** Keep the tiles' data credits visible while photorealistic mode is on. */
+  private showCredits() {
+    const el = document.getElementById('credits');
+    if (!el) return;
+    const on = !!this.tiles && getState().stage === 'three' && this.active === this.site?.sc;
+    el.classList.toggle('hidden', !on);
+    if (on) el.textContent = this.tiles!.pr.credits() || 'Google';
   }
   private dropTiles() {
     if (!this.tiles) return;

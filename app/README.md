@@ -20,6 +20,7 @@ Optional environment variables (`app/.env.local`):
 | --- | --- |
 | `VITE_GOOGLE_MAPS_API_KEY` | Photorealistic 3D site view from Google Photorealistic 3D Tiles. It can also be entered at runtime under Display, where it is stored on that device only. |
 | `VITE_MAPILLARY_TOKEN` | Street-level photos from Mapillary, alongside Wikimedia Commons photos. |
+| `VITE_CESIUM_ION_TOKEN` | Photorealistic 3D through Cesium ion (Google Photorealistic 3D Tiles, ion asset 2275207). It needs no Google billing and is used before a Google key. It can also be entered under Display. |
 `layouts.html` shows the app at 13 in laptop through 40 in kiosk resolutions side by side.
 
 ## Modules
@@ -66,7 +67,7 @@ public services, each with a fallback:
 - OpenStreetMap Overpass: building footprints and heights, roads, trees and parks around each site. Without it the site shows a stylised campus.
 - Wikimedia Commons: geotagged photos within 2 km. Mapillary street-level photos are added when a token is set.
 - OSRM: real road geometry for the road route. Without it the route follows the stored NH48 polyline.
-- Google Photorealistic 3D Tiles: optional, with a key.
+- Google Photorealistic 3D Tiles: optional, through a Cesium ion token or a Google key. The data credits show on screen while the tiles are visible.
 
 ## Blender assets
 

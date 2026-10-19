@@ -43,6 +43,8 @@ export interface AppState {
   /** Render the site from Google Photorealistic 3D Tiles (needs a key). */
   photoreal: boolean;
   googleKey: string;
+  /** Cesium ion access token: Google Photorealistic 3D Tiles through Cesium, no Google billing needed. */
+  cesiumToken: string;
   photos: Record<string, PhotoState>;
   siteStats: Record<string, SiteStats>;
   /** Bumped on every edit so subscribers can cheaply detect changes. */
@@ -53,19 +55,26 @@ export const MAP_SCREENS: ScreenId[] = ['network', 'routes', 'shipments'];
 export const THREE_SCREENS: ScreenId[] = ['site', 'movements', 'store'];
 export const stageFor = (s: ScreenId): Stage => (MAP_SCREENS.includes(s) ? 'map' : THREE_SCREENS.includes(s) ? 'three' : 'page');
 
-const KEY_STORE = 'ktec-twin.googleKey';
-export function readStoredKey(): string {
-  try { return localStorage.getItem(KEY_STORE) ?? ''; } catch { return ''; }
+const KEY_STORE = { google: 'ktec-twin.googleKey', cesium: 'ktec-twin.cesiumToken' };
+type KeyName = keyof typeof KEY_STORE;
+export function readStoredKey(name: KeyName = 'google'): string {
+  try { return localStorage.getItem(KEY_STORE[name]) ?? ''; } catch { return ''; }
 }
-export function storeKey(k: string) {
-  try { if (k) localStorage.setItem(KEY_STORE, k); else localStorage.removeItem(KEY_STORE); } catch { /* private mode */ }
+export function storeKey(k: string, name: KeyName = 'google') {
+  try { if (k) localStorage.setItem(KEY_STORE[name], k); else localStorage.removeItem(KEY_STORE[name]); } catch { /* private mode */ }
 }
+
+/** Where photorealistic tiles come from: Cesium ion first (works without Google billing), else a Google key. */
+export type TileSource = { kind: 'ion'; token: string } | { kind: 'google'; key: string };
+export const tileSource = (s: AppState): TileSource | null =>
+  s.cesiumToken ? { kind: 'ion', token: s.cesiumToken } : s.googleKey ? { kind: 'google', key: s.googleKey } : null;
 
 function initialState(): AppState {
   const p = new URLSearchParams(location.search);
   const screen = (p.get('screen') as ScreenId) || 'network';
   const site = p.get('site') ?? '';
   const googleKey = readStoredKey() || (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '');
+  const cesiumToken = readStoredKey('cesium') || (import.meta.env.VITE_CESIUM_ION_TOKEN ?? '');
   const w = innerWidth, h = innerHeight;
   const portrait = h > w * 1.05 || w < 820;
   return {
@@ -73,7 +82,7 @@ function initialState(): AppState {
     bin: { ...FEATURED_BIN }, bld: null, peel: true, dim: '3D', moveFrom: null,
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     base: 'sat', toast: null, overlay: null, loading: false, rev: 0,
-    tod: null, fade: null, tour: false, photoreal: !!googleKey, googleKey,
+    tod: null, fade: null, tour: false, photoreal: !!(googleKey || cesiumToken), googleKey, cesiumToken,
     photos: {}, siteStats: {},
   };
 }

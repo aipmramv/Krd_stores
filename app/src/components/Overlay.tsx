@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SITE_BY_ID, SITES } from '../data/sites';
 import type { ScreenId } from '../data/types';
-import { closeOverlay, go, openPalette, openPhoto, selectSite, setGoogleKey, setKiosk, viewPhotoIn3D } from '../state/actions';
+import { closeOverlay, go, openPalette, openPhoto, selectSite, setCesiumToken, setGoogleKey, setKiosk, viewPhotoIn3D } from '../state/actions';
 import { useApp } from '../state/store';
 
 interface PalItem { title: string; sub: string; hint: string; run: () => void }
@@ -53,14 +53,19 @@ function Palette({ q }: { q: string }) {
 }
 
 function DisplayMenu({ top, right }: { top: number; right: number }) {
-  const kiosk = useApp(s => s.kiosk), key = useApp(s => s.googleKey);
-  const [draft, setDraft] = useState(key);
+  const kiosk = useApp(s => s.kiosk), key = useApp(s => s.googleKey), ion = useApp(s => s.cesiumToken);
+  const [draft, setDraft] = useState(key), [ionDraft, setIonDraft] = useState(ion);
   return (
     <div className="menu" style={{ top, right }} role="menu">
       <span className="eb">Touch density</span>
       <button role="menuitemradio" aria-checked={!kiosk} onClick={() => setKiosk(false)}><span>Standard · 13–27 in screens</span>{!kiosk && <b>On</b>}</button>
       <button role="menuitemradio" aria-checked={kiosk} onClick={() => setKiosk(true)}><span>Kiosk touch · 32–55 in screens</span>{kiosk && <b>On</b>}</button>
       <span className="eb">Photorealistic 3D</span>
+      <form className="keyform" onSubmit={e => { e.preventDefault(); setCesiumToken(ionDraft); }}>
+        <label htmlFor="iontoken">Cesium ion access token (Google Photorealistic 3D Tiles through Cesium). Used first. Stored only on this device.</label>
+        <div><input id="iontoken" type="password" autoComplete="off" value={ionDraft} onChange={e => setIonDraft(e.target.value)} placeholder="eyJ…" />
+          <button type="submit" className="btn primary">{ionDraft ? 'Save' : 'Clear'}</button></div>
+      </form>
       <form className="keyform" onSubmit={e => { e.preventDefault(); setGoogleKey(draft); }}>
         <label htmlFor="gkey">Google Maps Platform key with Map Tiles API, Places API (New) and Street View Static API. Stored only on this device.</label>
         <div><input id="gkey" type="password" autoComplete="off" value={draft} onChange={e => setDraft(e.target.value)} placeholder="AIza…" />

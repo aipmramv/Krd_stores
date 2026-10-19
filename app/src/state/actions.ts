@@ -4,7 +4,7 @@ import type { Bin, ColorMode, ScreenId } from '../data/types';
 import { mapEngine } from '../map/mapEngine';
 import { loadPhotos, reloadPhotos } from '../services/photos';
 import { threeEngine } from '../three/engine';
-import { getState, MAP_SCREENS, setState, stageFor, storeKey, type AppState } from './store';
+import { getState, MAP_SCREENS, setState, stageFor, storeKey, tileSource, type AppState } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
 const isSiteScreen = (s: ScreenId) => s === 'site' || s === 'movements';
@@ -106,7 +106,7 @@ export const setTimeOfDay = (tod: number | null) => setState({ tod });
 export const toggleTour = () => setState(s => ({ tour: !s.tour }));
 export function togglePhotoreal() {
   const s = getState();
-  if (!s.googleKey) { toast('Add a Google Maps Platform key in Display to use photorealistic 3D'); return; }
+  if (!tileSource(s)) { toast('Add a Cesium ion token or a Google key in Display to use photorealistic 3D'); return; }
   setState({ photoreal: !s.photoreal });
 }
 export function setGoogleKey(k: string) {
@@ -115,6 +115,12 @@ export function setGoogleKey(k: string) {
   setState({ googleKey: key, photoreal: !!key, overlay: null });
   reloadPhotos(getState().site);
   toast(key ? 'Google key saved on this device · photorealistic 3D and Google photos on' : 'Google key removed');
+}
+export function setCesiumToken(t: string) {
+  const token = t.trim();
+  storeKey(token, 'cesium');
+  setState(s => ({ cesiumToken: token, photoreal: !!(token || s.googleKey), overlay: null }));
+  toast(token ? 'Cesium ion token saved on this device · photorealistic 3D on' : 'Cesium ion token removed');
 }
 export const setKiosk = (on: boolean) => { setState({ kiosk: on, overlay: null }); requestAnimationFrame(() => threeEngine.refreshRadial()); };
 export const openPalette = (q = '') => setState({ overlay: { kind: 'palette', q } });

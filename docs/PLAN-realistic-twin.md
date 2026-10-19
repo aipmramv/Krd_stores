@@ -38,9 +38,11 @@ All shipments, transfers, routes and site twins now run on these four sites only
    map's scale and position, overhead. The map then cross-fades into the 3D scene while the camera
    tilts down into an oblique view. Leaving reverses this: the camera rises to overhead, the map
    fades back in and zooms out. Switching sites from inside 3D does the same out-fly-in sequence.
-7. **Photorealistic mode (optional).** With a Google Maps Platform key (Display menu, or
-   `VITE_GOOGLE_MAPS_API_KEY`), the site is rendered from Google Photorealistic 3D Tiles: real
-   photogrammetry of every building. KONE labels, flows and photos stay on top.
+7. **Photorealistic mode (optional).** With a Cesium ion token (`VITE_CESIUM_ION_TOKEN`) or a Google
+   Maps Platform key (`VITE_GOOGLE_MAPS_API_KEY`), entered under Display or set as a repository secret,
+   the site is rendered from Google Photorealistic 3D Tiles: real photogrammetry of every building.
+   Cesium ion is tried first because it needs no Google billing. Its free Community plan is for
+   non-commercial use; commercial use needs a paid ion plan. KONE labels, flows and photos stay on top.
 8. **Interaction.** Hover highlight on buildings, tap to focus the camera on one, a cinematic auto-orbit
    "Tour", a time-of-day slider with "Now", and per-site layers (OSM buildings, neighbours, satellite
    ground, trees, vehicles, photos, labels, alerts).

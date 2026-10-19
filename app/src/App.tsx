@@ -66,6 +66,7 @@ export function App() {
         <Timeline hidden={isPage} />
         <Reports hidden={screen !== 'reports'} />
         <Mobile hidden={screen !== 'mobile'} />
+        <div id="credits" className="credits hidden" aria-label="Map data credits" />
         <Toast />
       </main>
       <ModuleTabs dock />

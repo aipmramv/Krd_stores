@@ -313,3 +313,7 @@ html.portrait .rep main{padding:1.25rem}
 /* Loading sits below the site pin during the fly-in, readable over imagery. */
 .loading{top:auto;bottom:calc(var(--bot) + 2rem);transform:translateX(-50%);background:rgba(20,20,20,.78);color:#fff;padding:.625rem 1rem}
 html.portrait .loading{bottom:calc(var(--bot) + var(--sheet) + 2rem)}
+
+/* Data credits for photorealistic tiles (required by Google's terms). */
+.credits{position:absolute;left:calc(var(--railw) + 2*var(--g));bottom:calc(var(--bot) + .25rem);z-index:14;max-width:40%;padding:.125rem .5rem;background:rgba(255,255,255,.85);font-size:.625rem;color:#4A4D55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+html.portrait .credits{left:var(--g);bottom:calc(var(--bot) + var(--sheet) + .25rem)}
