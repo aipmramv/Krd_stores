@@ -21,17 +21,17 @@ export const SITES: Site[] = [
   },
   {
     id: 'isu', name: 'KONE ISU & Test Tower', short: 'ISU Sriperumbudur', type: 'Factory and test tower · SIPCOT Sriperumbudur', kind: 'factory',
-    address: 'KONE Elevator India Private Limited Factory, Plot No: A 28, SIPCOT Industrial Park, Irumbedu Main Road, Pillaipakkam, Sriperumbudur Taluk, Kancheepuram District, Tamil Nadu 602105',
-    ll: [12.9868, 79.9922], ellH: -45, space: 71, value: '₹212 Cr', ship: 44, left: true,
+    address: 'KONE Elevator India Private Limited, Plot No. A-28, SIPCOT Industrial Park Pillaipakkam, Irumbedu Main Road, Pennalur, Sriperumbudur Taluk, Kancheepuram District, Tamil Nadu 602105',
+    ll: [12.95646, 79.97717], ellH: -45, space: 71, value: '₹212 Cr', ship: 44, left: true,
     facilities: [
       { k: 'main', n: 'ISU production hall', s: 'Assembly lines · mezzanine store', info: 'Elevator and door-operator assembly · electronics store on the mezzanine', col: '#A1B9FB', facade: 'metal',
         floors: [['Ground · assembly lines', '72%'], ['Mezzanine · electronics store', '84%'], ['Roof · solar and plant', '—']], storeFloor: 1 },
-      { k: 'tow', n: 'KONE test tower', s: 'Shaft 2 in test', info: 'Lift test tower · shaft 2 running a 15 kW PM motor endurance test', col: '#1450F5', facade: 'concrete', modelled: 'test_tower' },
+      { k: 'tow', n: 'KONE test tower', s: 'Shaft 2 in test', info: 'Lift test tower · shaft 2 running a 15 kW PM motor endurance test', col: '#1450F5', facade: 'concrete' },
       { k: 'wh', n: 'Component warehouse', s: 'Line-side supply', info: 'Kitting and line-side supply for the assembly lines', col: '#D2F5FF', facade: 'metal' },
       { k: 'adm', n: 'Admin and training', s: 'Badge access', info: 'Offices, training centre and visitor reception', col: '#F7F8FA', facade: 'glass' },
       { k: 'stg', n: 'Dispatch docks', s: '14 crates today', info: 'Outbound dispatch to sites and the DHL warehouse · 14 crates today', col: '#AAE1C8', facade: 'metal' },
       HAZMAT, QUARANTINE,
-      { k: 'scr', n: 'Scrap yard', s: '4 open cases', info: '4 open scrap cases · disposal vendor pick-up Friday', col: '#F3EEEA', facade: 'concrete', modelled: 'yard' },
+      { k: 'scr', n: 'Scrap yard', s: '4 open cases', info: '4 open scrap cases · disposal vendor pick-up Friday', col: '#F3EEEA', facade: 'concrete' },
     ],
     flows: [
       ['wh', 'main', '#D2F5FF', 'Line feed · 120 kits', 'flows'],

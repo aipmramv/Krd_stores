@@ -4,48 +4,16 @@
     "name": "KTEC Chennai",
     "kind": "rnd",
     "ll": [
-      13.09217,
-      80.16324
+      13.0922,
+      80.16336
     ],
     "facilities": [
       {
         "k": "main",
-        "n": "Tower-B · KTEC",
+        "n": "Tower B · KTEC",
         "facade": "glass",
         "col": "#A1B9FB",
-        "floors": 3,
-        "modelled": null
-      },
-      {
-        "k": "twa",
-        "n": "Tower-A · tech park",
-        "facade": "glass",
-        "col": "#D2F5FF",
-        "floors": 0,
-        "modelled": null
-      },
-      {
-        "k": "park",
-        "n": "Multi-level parking",
-        "facade": "concrete",
-        "col": "#F7F8FA",
-        "floors": 0,
-        "modelled": null
-      },
-      {
-        "k": "stg",
-        "n": "Service yard and receiving",
-        "facade": "metal",
-        "col": "#AAE1C8",
-        "floors": 0,
-        "modelled": null
-      },
-      {
-        "k": "haz",
-        "n": "Hazmat store",
-        "facade": "concrete",
-        "col": "#FFCDD7",
-        "floors": 0,
+        "floors": 5,
         "modelled": null
       }
     ]
@@ -55,8 +23,8 @@
     "name": "KONE ISU & Test Tower",
     "kind": "factory",
     "ll": [
-      12.9868,
-      79.9922
+      12.95646,
+      79.97717
     ],
     "facilities": [
       {
@@ -73,7 +41,7 @@
         "facade": "concrete",
         "col": "#1450F5",
         "floors": 0,
-        "modelled": "test_tower"
+        "modelled": null
       },
       {
         "k": "wh",
@@ -121,7 +89,7 @@
         "facade": "concrete",
         "col": "#F3EEEA",
         "floors": 0,
-        "modelled": "yard"
+        "modelled": null
       }
     ]
   },

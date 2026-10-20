@@ -3,5 +3,18 @@
     "main": "ktec/main.glb",
     "twa": "ktec/twa.glb",
     "plaza": "ktec/plaza.glb"
+  },
+  "isu": {
+    "main": "isu/main.glb",
+    "tow": "isu/tow.glb",
+    "adm": "isu/adm.glb",
+    "wh": "isu/wh.glb",
+    "annex": "isu/annex.glb",
+    "utility": "isu/utility.glb",
+    "stg": "isu/stg.glb",
+    "haz": "isu/haz.glb",
+    "qua": "isu/qua.glb",
+    "scr": "isu/scr.glb",
+    "campus": "isu/campus.glb"
   }
 }

@@ -13,7 +13,7 @@ with one continuous camera motion from the map down into each site.
 | --- | --- | --- | --- |
 | `ktec` | KTEC Chennai — Tower-B, One India Bulls Tech Park, Ambattur Industrial Estate, Chennai 600058 | R&D centre | 13.0922, 80.16336 |
 | `pnq` | KTEC Pune — Westend Icon, Westend Mall Campus, Aundh, Pune 411067 | R&D centre | 18.5631, 73.8078 |
-| `isu` | KONE ISU & Test Tower — Plot A 28, SIPCOT Industrial Park, Pillaipakkam, Sriperumbudur 602105 | Factory | 12.9868, 79.9922 |
+| `isu` | KONE ISU & Test Tower — Plot A 28, SIPCOT Industrial Park, Pillaipakkam, Sriperumbudur 602105 | Factory | 12.95646, 79.97717 |
 | `dhl` | KONE – DHL Warehouse — IndoSpace Oragadam 3, Ezhichur Road, Oragadam 631606 | 3PL warehouse | 12.8105, 79.9575 |
 
 All shipments, transfers, routes and site twins now run on these four sites only.

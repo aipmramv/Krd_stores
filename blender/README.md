@@ -16,6 +16,12 @@ models made in Blender, which look much closer to the real buildings.
   storey (`floor_0` = ground … `floor_12`), Tower A and the plaza. The floor plate outline and the
   level heights are stored on the `main` root as custom properties (glTF extras), so the app can
   open a floor and furnish it. Facilities with `levels` in `sites.ts` use this.
+- `kone_isu.py` models the KONE ISU factory and test tower campus at SIPCOT Pillaipakkam from
+  footprints traced on Esri World Imagery: production hall (peels into ground, mezzanine and roof),
+  test tower, admin block, warehouse, docks, hazmat store, quarantine and scrap yards, and the
+  campus paving, roads, gate and car port.
+- The **OSM snapshot** workflow saves the app's OSM data, a lookup of named places and, with the
+  `imagery` input (`lat,lon[,zoom]`), a satellite mosaic to the `osm-snapshot` branch for tracing.
 
 ## Workflow
 
