@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       imagery:
-        description: 'Optional "lat,lon" to save a 3 × 3 km satellite mosaic around (Esri World Imagery, zoom 16)'
+        description: 'Optional "lat,lon" or "lat,lon,zoom" to save a 9 × 9 tile satellite mosaic around (Esri World Imagery, zoom 16 by default)'
         default: ''
       query:
         description: 'Optional Overpass QL to run and save as query.json'
@@ -53,11 +53,12 @@ jobs:
         continue-on-error: true
         run: |
           pip install -q pillow
-          python3 - "${{ inputs.imagery }}" > snapshot/imagery.log 2>&1 <<'PY'
+          python3 - ${{ inputs.imagery }} > snapshot/imagery.log 2>&1 <<'PY'
           import math, sys, urllib.request, io
           from PIL import Image
-          lat, lon = map(float, sys.argv[1].split(','))
-          z = 16; n = 2 ** z
+          lat, lon = map(float, sys.argv[1].split(',')[:2])
+          if sys.argv[1].count(',') == 2: sys.argv.append(sys.argv[1].split(',')[2])
+          z = int(sys.argv[2]) if len(sys.argv) > 2 else 16; n = 2 ** z
           fx = (lon + 180) / 360 * n
           fy = (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n
           cx, cy, R = int(fx), int(fy), 4
