@@ -4,6 +4,10 @@ name: OSM snapshot
 # to the osm-snapshot branch, so the site models can be checked against real footprints offline.
 on:
   workflow_dispatch:
+    inputs:
+      imagery:
+        description: 'Optional "lat,lon" to save a 3 × 3 km satellite mosaic around (Esri World Imagery, zoom 16)'
+        default: ''
 
 permissions:
   contents: write
@@ -31,7 +35,30 @@ jobs:
           done
           curl -sf -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=KONE+Elevator+Sriperumbudur&format=json&limit=10' -o snapshot/nominatim-kone.json || true
           curl -sf -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=Irungattukottai+Irumbedu+Road&format=json&limit=10' -o snapshot/nominatim-road.json || true
+          q2='[out:json][timeout:60];way["highway"]["name"~"Irumb|Irrumb|Irung|Pennalur|Pillaipakkam",i](12.85,79.85,13.1,80.1);out center tags;'
+          curl -sf -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$q2" https://overpass-api.de/api/interpreter -o snapshot/roads-named.json || true
           ls -la snapshot
+      - name: Satellite mosaic
+        if: inputs.imagery != ''
+        run: |
+          python3 - "${{ inputs.imagery }}" <<'PY'
+          import math, sys, urllib.request, io
+          from PIL import Image
+          lat, lon = map(float, sys.argv[1].split(','))
+          z = 16; n = 2 ** z
+          fx = (lon + 180) / 360 * n
+          fy = (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n
+          cx, cy, R = int(fx), int(fy), 4
+          img = Image.new('RGB', ((2 * R + 1) * 256,) * 2)
+          for dx in range(-R, R + 1):
+              for dy in range(-R, R + 1):
+                  url = f'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{cy + dy}/{cx + dx}'
+                  data = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'KONE-Materials-Twin/1.0'}), timeout=30).read()
+                  img.paste(Image.open(io.BytesIO(data)), ((dx + R) * 256, (dy + R) * 256))
+          img.save('snapshot/imagery.jpg', quality=88)
+          # Tile origin, so pixels can be turned back into latitude/longitude.
+          open('snapshot/imagery.txt', 'w').write(f'z={z} x0={cx - R} y0={cy - R} tiles={2 * R + 1}\n')
+          PY
       - name: Commit to the osm-snapshot branch
         run: |
           git config user.name "github-actions[bot]"
