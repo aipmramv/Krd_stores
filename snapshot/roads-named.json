@@ -1,0 +1,566 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-20T09:34:57Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 30120306,
+  "center": {
+    "lat": 12.8917775,
+    "lon": 80.0746155
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 30799571,
+  "center": {
+    "lat": 12.9536644,
+    "lon": 79.9876922
+  },
+  "tags": {
+    "highway": "tertiary",
+    "name": "SH113 - Vengadu - Irumbedu Road",
+    "ref": "O1037"
+  }
+},
+{
+  "type": "way",
+  "id": 155486365,
+  "center": {
+    "lat": 12.8931218,
+    "lon": 80.0803859
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48"
+  }
+},
+{
+  "type": "way",
+  "id": 385083687,
+  "center": {
+    "lat": 12.9333018,
+    "lon": 79.9557806
+  },
+  "tags": {
+    "highway": "tertiary",
+    "name": "Pillaipakkam - Kaduvancheri Road",
+    "ref": "O5165"
+  }
+},
+{
+  "type": "way",
+  "id": 535357216,
+  "center": {
+    "lat": 12.8953098,
+    "lon": 80.0547041
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 535357219,
+  "center": {
+    "lat": 12.8952359,
+    "lon": 80.0532730
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "source:bridge": "bing",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 535357220,
+  "center": {
+    "lat": 12.8949067,
+    "lon": 80.0617745
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 535357221,
+  "center": {
+    "lat": 12.8952806,
+    "lon": 80.0584887
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "source:bridge": "bing"
+  }
+},
+{
+  "type": "way",
+  "id": 725909948,
+  "center": {
+    "lat": 12.8929235,
+    "lon": 80.0666917
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729835686,
+  "center": {
+    "lat": 12.8908169,
+    "lon": 80.0356226
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729835688,
+  "center": {
+    "lat": 12.8909313,
+    "lon": 80.0356481
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729835690,
+  "center": {
+    "lat": 12.8951418,
+    "lon": 80.0532702
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "source:bridge": "bing",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729835691,
+  "center": {
+    "lat": 12.8947545,
+    "lon": 80.0499650
+  },
+  "tags": {
+    "highway": "primary",
+    "lit": "no",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729835692,
+  "center": {
+    "lat": 12.8948683,
+    "lon": 80.0499666
+  },
+  "tags": {
+    "highway": "primary",
+    "lit": "no",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729835693,
+  "center": {
+    "lat": 12.8952199,
+    "lon": 80.0556812
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729835696,
+  "center": {
+    "lat": 12.8951694,
+    "lon": 80.0584835
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "source:bridge": "bing"
+  }
+},
+{
+  "type": "way",
+  "id": 729835699,
+  "center": {
+    "lat": 12.8928296,
+    "lon": 80.0666530
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729883697,
+  "center": {
+    "lat": 12.8638164,
+    "lon": 79.9700215
+  },
+  "tags": {
+    "highway": "primary",
+    "lit": "no",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 729883717,
+  "center": {
+    "lat": 12.8694688,
+    "lon": 79.9819917
+  },
+  "tags": {
+    "highway": "primary",
+    "lit": "no",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 732885574,
+  "center": {
+    "lat": 12.8514518,
+    "lon": 79.9434952
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no"
+  }
+},
+{
+  "type": "way",
+  "id": 732885575,
+  "center": {
+    "lat": 12.8515079,
+    "lon": 79.9433812
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 752866120,
+  "center": {
+    "lat": 12.8925066,
+    "lon": 80.0786708
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48"
+  }
+},
+{
+  "type": "way",
+  "id": 752866121,
+  "center": {
+    "lat": 12.8918746,
+    "lon": 80.0746000
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 752866122,
+  "center": {
+    "lat": 12.8924114,
+    "lon": 80.0786905
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48"
+  }
+},
+{
+  "type": "way",
+  "id": 752866123,
+  "center": {
+    "lat": 12.8930271,
+    "lon": 80.0803974
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48"
+  }
+},
+{
+  "type": "way",
+  "id": 760164442,
+  "center": {
+    "lat": 12.8948127,
+    "lon": 80.0617578
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1095128562,
+  "center": {
+    "lat": 12.8802605,
+    "lon": 80.0060554
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1206068645,
+  "center": {
+    "lat": 12.8915016,
+    "lon": 80.0698050
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1206068647,
+  "center": {
+    "lat": 12.8914033,
+    "lon": 80.0697918
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1219506327,
+  "center": {
+    "lat": 12.8953423,
+    "lon": 80.0568204
+  },
+  "tags": {
+    "highway": "primary",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48"
+  }
+},
+{
+  "type": "way",
+  "id": 1530327022,
+  "center": {
+    "lat": 12.8860868,
+    "lon": 80.0194259
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "lit": "no",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1530327023,
+  "center": {
+    "lat": 12.8863893,
+    "lon": 80.0206328
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1530327024,
+  "center": {
+    "lat": 12.8868055,
+    "lon": 80.0225561
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1530327025,
+  "center": {
+    "lat": 12.8870929,
+    "lon": 80.0237318
+  },
+  "tags": {
+    "bridge": "yes",
+    "highway": "primary",
+    "layer": "1",
+    "name": "Marmalong Bridge - Irumbuliyur - Vandalur - Mudichur - Oragadam - Walajabad Road",
+    "oneway": "yes",
+    "ref": "SH48",
+    "sidewalk": "no",
+    "surface": "asphalt"
+  }
+}
+
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-20T09:33:55Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 10942180763,
+  "lat": 13.0781956,
+  "lon": 80.2633338,
+  "tags": {
+    "artwork_type": "statue",
+    "name": "Maveeran Alagumuthu Kone",
+    "tourism": "artwork"
+  }
+},
+{
+  "type": "way",
+  "id": 355014887,
+  "center": {
+    "lat": 12.9254403,
+    "lon": 80.1068656
+  },
+  "tags": {
+    "amenity": "community_centre",
+    "building": "yes",
+    "name": "Kone Krishna Reddiyar Marriage Hall"
+  }
+},
+{
+  "type": "way",
+  "id": 940994466,
+  "center": {
+    "lat": 12.8362919,
+    "lon": 79.8968023
+  },
+  "tags": {
+    "building": "industrial",
+    "name": "KONE Elevator India Distribution Centre"
+  }
+},
+{
+  "type": "way",
+  "id": 1250404223,
+  "center": {
+    "lat": 12.8481764,
+    "lon": 79.7112187
+  },
+  "tags": {
+    "landuse": "residential",
+    "name": "Konerikuppam",
+    "residential": "rural"
+  }
+}
+
+  ]
+}
