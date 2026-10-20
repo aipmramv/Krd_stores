@@ -220,6 +220,8 @@ async function build(site: Site): Promise<SiteScene> {
   const footprintRadius = (b: OsmBuilding) => Math.sqrt(b.area / Math.PI);
 
   const towerMats: { m: THREE.MeshStandardMaterial; part: string; level: number }[] = [];
+  // Glazing with a lit-windows emissive map that only glows at night (storey-split towers handle their own).
+  const nightGlass = new Set<THREE.MeshStandardMaterial>();
   const ktecBand = new THREE.MeshBasicMaterial({ color: '#1450F5', toneMapped: false, transparent: true, opacity: .95 });
   for (const [k, box] of Object.entries(heroBox)) {
     const f = site.facilities.find(x => x.k === k)!, model = hero[k];
@@ -241,7 +243,7 @@ async function build(site: Site): Promise<SiteScene> {
         mesh.material = m;
         const part = /glass/.test(o.name) ? 'glass' : /louvre|crown/.test(o.name) ? 'louvres' : 'solid';
         towerMats.push({ m, part, level: floor });
-      }
+      } else if ((mesh.material as THREE.MeshStandardMaterial).emissiveMap) nightGlass.add(mesh.material as THREE.MeshStandardMaterial);
       o.userData = { k, floor };
       pickables.push(o);
     });
@@ -270,10 +272,9 @@ async function build(site: Site): Promise<SiteScene> {
     konGroup.add(model, outline);
     meta[k] = { f, k, c: new THREE.Vector3(c.x, 0, c.z), h: box.max.y, size: Math.max(size.x, size.z) / 2, obj: model, slabs, outline, tower };
   }
-  const heroGlass = towerMats.filter(x => x.part === 'glass' && x.m.emissiveMap);
   for (const [k, box] of Object.entries(sceneryBox)) {
     const model = hero[k];
-    model.traverse(o => { const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m?.emissiveMap) heroGlass.push({ m, part: 'glass', level: -1 }); });
+    model.traverse(o => { const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m?.emissiveMap) nightGlass.add(m); });
     (box.max.y > 3 ? ctxGroup : sc).add(model);
   }
   for (const b of blds) {
@@ -549,7 +550,7 @@ async function build(site: Site): Promise<SiteScene> {
     for (const m of Object.values(meta)) if (m.outline) m.outline.visible = !m.tower && (s.bld === m.k || hovered === m.k);
     const night = 1 - sky.day;
     for (const m of allFacades()) m.emissiveIntensity = night * .9;
-    for (const { m, level } of heroGlass) if (level < 0) m.emissiveIntensity = night * 1.1;
+    for (const m of nightGlass) m.emissiveIntensity = night * 1.1;
   };
 
   const res: SiteScene = {
