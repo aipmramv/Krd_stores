@@ -5,7 +5,8 @@ import { binId, rnd } from '../../data/storeModel';
 import { useDoc, useQuery } from '../../db/hooks';
 import { MoveForm, MoveList } from './moves';
 import { ScrapCaseView, ScrapList, ScrapNew } from './scrap';
-import { binAction, enterFloor, exitFloor, focusBuilding, go, newScrap, openPhoto, selectSite, startMove, toast, toggleWalk } from '../../state/actions';
+import { BinTaskPanel } from './storeTasks';
+import { binAction, enterFloor, exitFloor, focusBuilding, go, newScrap, openPhoto, selectSite, setBinTask, startMove, toast, toggleWalk } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
 
@@ -186,7 +187,7 @@ export function SiteDrawer() {
 }
 
 export function StoreDrawer() {
-  const bin = useApp(s => s.bin), site = useApp(s => s.site), draft = useApp(s => s.moveDraft), scrapNew = useApp(s => s.scrapNew), id = binId(bin);
+  const bin = useApp(s => s.bin), site = useApp(s => s.site), draft = useApp(s => s.moveDraft), scrapNew = useApp(s => s.scrapNew), task = useApp(s => s.binTask), id = binId(bin);
   const loc = `${site}:${id}`;
   const lots = useQuery('stockLots', { locationId: loc }).data, parts = useQuery('parts').data;
   const location = useDoc('locations', loc).data;
@@ -194,6 +195,7 @@ export function StoreDrawer() {
   const last = useQuery('movements', { $or: [{ from: loc }, { to: loc }], status: 'done' }, { sort: { updatedAt: -1 }, limit: 1 }).data[0];
   if (scrapNew) return <ScrapNew />;
   if (draft) return <DrawerFrame title="Move request"><MoveForm /></DrawerFrame>;
+  if (task) return <DrawerFrame title="Bin task" foot={<button className="btn" onClick={() => setBinTask(null)}>Back to bin {id}</button>}><BinTaskPanel task={task} loc={loc} /></DrawerFrame>;
   const main = lots[0], part = parts.find(p => p._id === main?.partNo);
   const onHand = lots.reduce((n, l) => n + l.qty, 0), reserved = lots.reduce((n, l) => n + l.reserved, 0);
   const into = inbound.reduce((n, m) => n + m.qty, 0), cap = location?.capacity ?? 60;

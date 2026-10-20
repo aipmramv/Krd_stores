@@ -85,3 +85,15 @@ also tap Move or Relocate and then tap, or choose, the destination. The checks:
 
 Open requests show in the bin drawer and in Moves & scrap, with the actions your role allows.
 Arcs mark them in the store: yellow while awaiting approval, blue once approved.
+
+## Workflows
+
+| Workflow | Service | Where in the app |
+|---|---|---|
+| Move requests | `services/moves.ts` | Store twin (press, hold and drag a bin), bin drawer, Moves & scrap |
+| Scrap cases | `services/scrap.ts` | Bin → Scrap, Moves & scrap: tag → reason → approval (by value) → scrap yard → disposal → certificate and write-off |
+| Shipments | `services/shipments.ts` | Routes (plan from stock, quote, book or split, confirmation and documents), Shipments (milestones, holds, notify, claims) |
+| Store actions | `services/stock.ts` | Bin drawer and radial: Pick, Put-away (tasks and receipts), blind Count with variance approval, Reserve/Release, QR Label, Docs, History |
+
+Each workflow checks the signed-in user's role, records a movement or a case history, and is
+audited. `npm test` covers every workflow against the demo database.

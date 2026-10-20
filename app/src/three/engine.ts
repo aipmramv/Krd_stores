@@ -4,11 +4,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SITE_BY_ID } from '../data/sites';
-import { binId, EXCEPTION_BIN, ROWS } from '../data/storeModel';
+import { binId, binOf, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
 import { HANDOFF_ZOOM, metresPerPixel, stageSafeArea, type Rect } from '../safeArea';
-import { binAction, enterFloor, go, openPhoto, selectBin, selectBuilding, setMoveTarget, startMove, toast } from '../state/actions';
-import { loadStoreView, onStoreView } from '../services/storeView';
+import { binAction, enterFloor, go, openPhoto, selectBin, selectBuilding, setBinTask, setMoveTarget, startMove, toast } from '../state/actions';
+import { getStoreView, loadStoreView, onStoreView } from '../services/storeView';
 import { getState, isOn, setState, subscribe, THREE_SCREENS } from '../state/store';
 import { Labels } from './labels';
 import { buildSite, setHovered, siteCached, type SiteScene } from './site';
@@ -92,7 +92,7 @@ class ThreeEngine {
       }
       if (e.pointerType === 'mouse') this.hover(e);
     });
-    onStoreView(() => { recolorBins(); drawMoves(getState().moveDraft); });
+    onStoreView(() => { recolorBins(); drawMoves(getState().moveDraft); if (getState().screen === 'store' && this.active === buildStore().sc) this.storeLabels(); });
     new ResizeObserver(() => this.resize()).observe(el);
     addEventListener('resize', () => { this.sa = null; });
     document.addEventListener('transitionend', () => { this.sa = null; });
@@ -429,14 +429,26 @@ class ThreeEngine {
 
   private storeLabels() {
     const L = this.labels!, lbl = () => isOn(getState(), 'store', 'lbl');
+    L.clear();
     ROWZ.forEach((z, i) => L.add(new THREE.Vector3(X0 - 1.6, .2, z), `<b>Rack ${ROWS[i]}</b>`, { tag: 'span', ay: -.5, show: lbl }));
     L.add(new THREE.Vector3(-1.5, .1, -11), '<b>ESD protected area</b>', { tag: 'span', show: lbl });
-    L.add(new THREE.Vector3(19.5, .1, -9), '<b>Quarantine cage</b><span>2 lots on hold</span>', { tag: 'span', show: lbl });
+    L.add(new THREE.Vector3(19.5, .1, -9), '<b>Quarantine cage</b><span>Lots on hold</span>', { tag: 'span', show: lbl });
     L.add(new THREE.Vector3(19.5, .1, 4), '<b>Hazmat cabinet</b><span>Li-ion · flammables</span>', { tag: 'span', show: lbl });
-    L.add(new THREE.Vector3(-12, 1.8, 13.5), '<b>Planned inbound · PO 4500182</b><span>Pallets arriving 21 Oct · 2 slots free</span>', { tag: 'span', show: () => isOn(getState(), 'store', 'ghost') });
-    L.add(binPos(EXCEPTION_BIN).add(new THREE.Vector3(0, .8, 0)),
-      '<div class="e">C-10-04 · COUNT VARIANCE</div><b style="font-size:.875rem">IoT gateway PCB</b><span>System 40 · scanned 36 · 24/7 Connected</span><span>Next: recount today, assigned to S. Iyer</span>',
-      { cls: 'card bad', tag: 'div', show: () => isOn(getState(), 'store', 'exc'), dx: 20, ax: 0, pri: 5 });
+    const view = getStoreView()?.site === getState().site ? getStoreView() : null;
+    const pa = view?.putaways ?? [];
+    if (pa.length) {
+      const first = pa[0], units = pa.reduce((n, m) => n + m.qty, 0);
+      L.add(new THREE.Vector3(-12, 1.8, 13.5), `<b>Waiting for put-away · ${pa.length} task${pa.length > 1 ? 's' : ''}</b><span>${units} units · first ${first.ref ?? first._id}</span>`,
+        { tag: 'button', show: () => isOn(getState(), 'store', 'ghost'), onClick: () => setBinTask('putaway') });
+    }
+    for (const m of (view?.counts ?? []).slice(0, 2)) {
+      const b = binOf(m.from);
+      if (!b) continue;
+      const part = view!.parts.get(m.partNo), d = (m.counted ?? 0) - m.qty;
+      L.add(binPos(b).add(new THREE.Vector3(0, .8, 0)),
+        `<div class="e">${binId(b)} · COUNT VARIANCE</div><b style="font-size:.875rem">${part?.description ?? m.partNo}</b><span>System ${m.qty} · counted ${m.counted} · ${d > 0 ? '+' : ''}${d}</span><span>Waiting for the store manager · ${m._id}</span>`,
+        { cls: 'card bad', tag: 'div', show: () => isOn(getState(), 'store', 'exc'), dx: 20, ax: 0, pri: 5 });
+    }
   }
 
   // ---------- Map handoff ----------
@@ -474,7 +486,7 @@ class ThreeEngine {
     if (screen === 'store') {
       const st = buildStore();
       this.active = st.sc;
-      this.labels!.clear(); this.storeLabels();
+      this.storeLabels();
       this.showRadial();
       void loadStoreView(getState().site).then(() => { recolorBins(); drawMoves(getState().moveDraft); });
       this.cam.near = .5; this.cam.far = 2000;

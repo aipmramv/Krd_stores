@@ -109,12 +109,16 @@ export function buildStore(): StoreScene {
 
   sc.userData.tick = (t: number) => {
     const s = getState();
-    exc.visible = isOn(s, 'store', 'exc');
+    // The pulsing bin marks the first open count variance; ghosts stand for waiting put-aways.
+    const view = getStoreView()?.site === s.site ? getStoreView() : null;
+    const excBin = view ? binOf(view.counts[0]?.from) : EXCEPTION_BIN;
+    exc.visible = isOn(s, 'store', 'exc') && !!excBin;
+    if (excBin) exc.position.copy(binPos(excBin));
     (exc.material as THREE.MeshStandardMaterial).emissiveIntensity = .35 + .45 * (.5 + .5 * Math.sin(t * 4.5));
     ghosts.visible = isOn(s, 'store', 'ghost');
     selBox.position.copy(binPos(s.bin));
     // A second PO lands a week out, so the forecast shows more planned pallets.
-    const want = s.t > 7 ? 8 : 5;
+    const want = Math.min(10, (view ? view.putaways.reduce((n, m) => n + Math.max(1, Math.round(m.qty / 10)), 0) : 5) + (s.t > 7 ? 3 : 0));
     if (want !== ghostN) mkGhosts(want);
   };
 

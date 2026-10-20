@@ -40,6 +40,8 @@ export interface AppState {
   /** Open scrap case in Moves & scrap, or a new one being tagged (optionally from a lot). */
   scrapId: string | null;
   scrapNew: { lotId?: string } | null;
+  /** Task open on the selected bin in the store twin. */
+  binTask: 'pick' | 'putaway' | 'count' | 'reserve' | 'history' | null;
   kiosk: boolean;
   sheet: 'peek' | 'half' | 'full';
   railOpen: boolean;
@@ -75,7 +77,7 @@ function initialState(): AppState {
   const portrait = h > w * 1.05 || w < 820;
   return {
     screen, stage: stageFor(screen), site: ['ktec', 'isu', 'dhl', 'pnq'].includes(site) ? site : 'ktec', ship: null, plan: { from: 'ktec', to: 'pnq', lines: [{ partNo: 'KM-DX-ACT-220', qty: 6 }], option: null }, planOptions: [], booked: null, mode: 'occupancy', t: 0, off: {},
-    bin: { ...FEATURED_BIN }, bld: null, user: p.get('user') ?? savedUser() ?? 'rv', peel: true, floor: null, walk: false, dim: '3D', moveDraft: null, scrapId: null, scrapNew: null,
+    bin: { ...FEATURED_BIN }, bld: null, user: p.get('user') ?? savedUser() ?? 'rv', peel: true, floor: null, walk: false, dim: '3D', moveDraft: null, scrapId: null, scrapNew: null, binTask: null,
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     toast: null, overlay: null, loading: false, rev: 0,
     tod: null, fade: null, tour: false,

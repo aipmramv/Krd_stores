@@ -12,6 +12,9 @@ export interface StoreView {
   parts: Map<string, Part>;
   /** Open move requests that start or end in this store. */
   moves: Movement[];
+  /** Count variances waiting for the store manager, and put-away tasks waiting at the site. */
+  counts: Movement[];
+  putaways: Movement[];
 }
 
 let view: StoreView | null = null;
@@ -26,15 +29,17 @@ const code = (locationId: string) => locationId.split(':')[1];
 export async function loadStoreView(site: string, force = false): Promise<StoreView> {
   if (view?.site === site && !force) return view;
   const n = ++req;
-  const [locs, lots, parts, moves] = await Promise.all([
+  const [locs, lots, parts, moves, counts, putaways] = await Promise.all([
     db.find('locations', { site, store: 'electronics' }),
     db.find('stockLots', { site }),
     db.find('parts'),
     db.find('movements', { site, type: 'move', status: { $in: ['requested', 'approved'] } }),
+    db.find('movements', { site, type: 'count', status: 'requested' }),
+    db.find('movements', { site, type: 'putaway', status: 'requested' }, { sort: { createdAt: 1 } }),
   ]);
   const byCode = new Map<string, StockLot[]>();
   for (const l of lots) { const c = code(l.locationId); byCode.set(c, [...(byCode.get(c) ?? []), l]); }
-  const v: StoreView = { site, lots: byCode, locs: new Map(locs.map(l => [l.code, l])), parts: new Map(parts.map(p => [p._id, p])), moves: moves.filter(isOpen) };
+  const v: StoreView = { site, lots: byCode, locs: new Map(locs.map(l => [l.code, l])), parts: new Map(parts.map(p => [p._id, p])), moves: moves.filter(isOpen), counts, putaways };
   if (n === req) { view = v; subs.forEach(f => f(v)); }
   return v;
 }

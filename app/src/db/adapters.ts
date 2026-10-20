@@ -18,7 +18,7 @@ export interface Adapter {
 
 // ---------- demo: in this browser ----------
 /** Bump when the seed or the document shapes change, so old demo data is replaced. */
-export const DEMO_VERSION = 4;
+export const DEMO_VERSION = 5;
 const KEY = (c: Coll) => `ktec-twin:v${DEMO_VERSION}:${c}`;
 
 function storage(): Storage | null {

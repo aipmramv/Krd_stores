@@ -8,6 +8,7 @@ import { db } from '../db';
 import * as moves from '../services/moves';
 import * as scrap from '../services/scrap';
 import * as ships from '../services/shipments';
+import * as stock from '../services/stock';
 import { getState, MAP_SCREENS, setState, stageFor, USER_KEY, type AppState } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
@@ -142,14 +143,17 @@ export function viewPhotoIn3D(site: string, i: number) { closeOverlay(); threeEn
 
 export function selectBin(b: Bin) { setState({ bin: b }); }
 
+const TASK: Record<string, AppState['binTask']> = { Pick: 'pick', 'Put-away': 'putaway', Count: 'count', Reserve: 'reserve', History: 'history' };
+export function setBinTask(t: AppState['binTask']) { setState({ binTask: t, moveDraft: null, scrapNew: null }); if (t) threeEngine.hideRadial(); else threeEngine.showRadial(); }
+
 export function binAction(a: string) {
-  const { bin } = getState(), id = binId(bin);
+  const { bin } = getState(), id = binId(bin), loc = `${getState().site}:${id}`;
   if (a === 'Move') { startMove(bin); return; }
+  if (TASK[a]) { setBinTask(TASK[a]); return; }
+  if (a === 'Label') { void import('../components/drawer/storeTasks').then(m => m.printLabels(loc)); return; }
+  if (a === 'Docs') { void import('../components/drawer/storeTasks').then(m => m.printPartSheet(loc)); return; }
   if (a === 'Scrap') { void db.find('stockLots', { locationId: `${getState().site}:${id}` }).then(l => newScrap(l.find(x => x.qty > x.reserved)?._id)); return; }
-  const what = a === 'Scrap' ? 'scrap case started, add reason and photo'
-    : a === 'Count' ? 'cycle count task sent to scanner'
-    : a === 'Reserve' ? 'reserved 4 for DX Class 2027' : 'opened';
-  toast(`${a} · ${id} · ${what}`);
+  toast(`${a} · ${id}`);
 }
 // ---------- Move requests ----------
 /** Start drawing a move from a bin: the destination comes from a tap, a drag or the form. */
@@ -187,6 +191,23 @@ export async function confirmMove(id: string) {
   const mv = await moves.complete(id, getState().user).catch(fail);
   if (mv) toast(`${id} done · stock moved and bins updated`);
 }
+// ---------- Store actions ----------
+const okToast = (msg: string) => (x: unknown) => { if (x) toast(msg); return x; };
+export const binPick = (lotId: string, qty: number, purpose: string, againstReservation: boolean) =>
+  stock.pick({ lotId, qty, purpose, againstReservation }, getState().user).catch(fail).then(okToast(`Picked ${qty} · ${purpose.toLowerCase()}`));
+export const binPutAway = (taskId: string, to: string, qty: number) => stock.putAway(taskId, to, qty, getState().user).catch(fail).then(okToast(`Put away ${qty} in ${to.split(':')[1]}`));
+export const binReceive = (partNo: string, qty: number, to: string, lot: string, ref: string) =>
+  stock.receive({ site: getState().site, partNo, qty, to, lot, ref }, getState().user).catch(fail).then(okToast(`Received ${qty} × ${partNo} into ${to.split(':')[1]}`));
+export async function binCount(entries: { lotId: string; counted: number }[]) {
+  const out = await stock.count(entries, getState().user).catch(fail);
+  if (!out) return;
+  const v = out.filter(m => m.counted !== m.qty);
+  toast(!v.length ? 'Count matches · posted' : v.every(m => m.status === 'done') ? `Variance posted · ${v.map(m => `${(m.counted ?? 0) - m.qty > 0 ? '+' : ''}${(m.counted ?? 0) - m.qty}`).join(', ')}` : `Variance sent to the store manager · ${v.map(m => m._id).join(', ')}`);
+}
+export const binDecideCount = (id: string, d: 'approved' | 'rejected') => stock.decideCount(id, d, getState().user).catch(fail).then(okToast(d === 'approved' ? `${id} posted · stock adjusted` : `${id} · recount requested`));
+export const binReserve = (lotId: string, qty: number, project: string, until: string) => stock.reserve({ lotId, qty, project, until }, getState().user).catch(fail).then(okToast(`Reserved ${qty} for ${project} until ${until}`));
+export const binRelease = (lotId: string, qty: number) => stock.release(lotId, qty, getState().user).catch(fail).then(okToast(`Released ${qty}`));
+
 // ---------- Shipments ----------
 type Plan = AppState['plan'];
 export const setPlan = (p: Partial<Plan>) => setState(s => ({ plan: { ...s.plan, ...p }, booked: null }));
