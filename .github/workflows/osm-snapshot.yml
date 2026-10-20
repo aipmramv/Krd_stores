@@ -1,0 +1,43 @@
+name: OSM snapshot
+
+# Run manually to save the OpenStreetMap data used by the app (and a lookup of named KONE places)
+# to the osm-snapshot branch, so the site models can be checked against real footprints offline.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Site data (same fetcher as the Pages deploy)
+        working-directory: app
+        timeout-minutes: 15
+        run: npm ci --ignore-scripts && node scripts/fetch-osm.ts
+      - name: Named KONE places around Chennai
+        timeout-minutes: 5
+        run: |
+          mkdir -p snapshot
+          cp app/public/osm/*.json snapshot/ || true
+          q='[out:json][timeout:60];(nwr["name"~"KONE",i](12.7,79.7,13.3,80.4);nwr["operator"~"KONE",i](12.7,79.7,13.3,80.4);nwr["brand"~"KONE",i](12.7,79.7,13.3,80.4););out center tags;'
+          for ep in https://overpass-api.de/api/interpreter https://overpass.private.coffee/api/interpreter https://overpass.osm.jp/api/interpreter; do
+            curl -sf -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$q" "$ep" -o snapshot/kone-named.json && break
+          done
+          curl -sf -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=KONE+Elevator+Sriperumbudur&format=json&limit=10' -o snapshot/nominatim-kone.json || true
+          curl -sf -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=Irungattukottai+Irumbedu+Road&format=json&limit=10' -o snapshot/nominatim-road.json || true
+          ls -la snapshot
+      - name: Commit to the osm-snapshot branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan osm-snapshot
+          git rm -rfq --cached .
+          git add -f snapshot
+          git commit -qm "OSM snapshot $(date -u +%F)"
+          git push -f origin osm-snapshot
