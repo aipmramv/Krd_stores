@@ -17,26 +17,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Site data (same fetcher as the Pages deploy)
+        if: inputs.imagery == ''
         working-directory: app
         timeout-minutes: 15
         run: npm ci --ignore-scripts && node scripts/fetch-osm.ts
       - name: Named KONE places around Chennai
-        timeout-minutes: 5
+        timeout-minutes: 8
+        continue-on-error: true
         run: |
           mkdir -p snapshot
-          cp app/public/osm/*.json snapshot/ || true
+          cp app/public/osm/*.json snapshot/ 2>/dev/null || git show origin/osm-snapshot:snapshot/isu.json >/dev/null 2>&1 || true
           q='[out:json][timeout:60];(nwr["name"~"KONE",i](12.7,79.7,13.3,80.4);nwr["operator"~"KONE",i](12.7,79.7,13.3,80.4);nwr["brand"~"KONE",i](12.7,79.7,13.3,80.4););out center tags;'
           for ep in https://overpass-api.de/api/interpreter https://overpass.private.coffee/api/interpreter https://overpass.osm.jp/api/interpreter; do
-            curl -sf -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$q" "$ep" -o snapshot/kone-named.json && break
+            curl -sf --max-time 60 -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$q" "$ep" -o snapshot/kone-named.json && break
           done
-          curl -sf -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=KONE+Elevator+Sriperumbudur&format=json&limit=10' -o snapshot/nominatim-kone.json || true
-          curl -sf -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=Irungattukottai+Irumbedu+Road&format=json&limit=10' -o snapshot/nominatim-road.json || true
+          curl -sf --max-time 60 -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=KONE+Elevator+Sriperumbudur&format=json&limit=10' -o snapshot/nominatim-kone.json || true
+          curl -sf --max-time 60 -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=Irungattukottai+Irumbedu+Road&format=json&limit=10' -o snapshot/nominatim-road.json || true
           q2='[out:json][timeout:60];way["highway"]["name"~"Irumb|Irrumb|Irung|Pennalur|Pillaipakkam",i](12.85,79.85,13.1,80.1);out center tags;'
-          curl -sf -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$q2" https://overpass-api.de/api/interpreter -o snapshot/roads-named.json || true
+          curl -sf --max-time 60 -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$q2" https://overpass-api.de/api/interpreter -o snapshot/roads-named.json || true
           ls -la snapshot
       - name: Satellite mosaic
         if: inputs.imagery != ''
