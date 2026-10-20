@@ -44,8 +44,10 @@ jobs:
           ls -la snapshot
       - name: Satellite mosaic
         if: inputs.imagery != ''
+        continue-on-error: true
         run: |
-          python3 - "${{ inputs.imagery }}" <<'PY'
+          pip install -q pillow
+          python3 - "${{ inputs.imagery }}" > snapshot/imagery.log 2>&1 <<'PY'
           import math, sys, urllib.request, io
           from PIL import Image
           lat, lon = map(float, sys.argv[1].split(','))
@@ -64,6 +66,7 @@ jobs:
           open('snapshot/imagery.txt', 'w').write(f'z={z} x0={cx - R} y0={cy - R} tiles={2 * R + 1}\n')
           PY
       - name: Commit to the osm-snapshot branch
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
