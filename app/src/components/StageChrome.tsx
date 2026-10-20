@@ -19,8 +19,8 @@ export function Crumbs({ hidden }: { hidden: boolean }) {
   const storeFloor = main.floors?.[main.storeFloor ?? 0]?.[0].split(' · ')[0] ?? 'Store floor';
   const cr: [string, ScreenId][] = ({
     network: [india],
-    routes: [india, ['Route plan · Chennai → Pune', 'routes']],
-    shipments: [india, ['Shipments · 142 live', 'shipments']],
+    routes: [india, [`Route plan · ${SITE_BY_ID[s.plan.from].short} → ${SITE_BY_ID[s.plan.to].short}`, 'routes']],
+    shipments: [india, ['Shipments', 'shipments']],
     site: fl ? [india, [site.name, 'site'], [main.n.split(' · ')[0], 'site'], [fl, 'site']]
       : [india, [site.name, 'site'], ...(bld && !main.levels ? [[bld.n, 'site'] as [string, ScreenId]] : [])],
     movements: [india, [site.name, 'site'], ['Movements and scrap', 'movements']],

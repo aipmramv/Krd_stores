@@ -14,8 +14,12 @@ export interface AppState {
   /** Which surface is visible. Normally follows the screen, but stays on the map while flying into a site. */
   stage: Stage;
   site: string;
-  route: number;
-  ship: number;
+  /** Shipment selected in the tracker (a shipments document id); null selects the first. */
+  ship: string | null;
+  /** Shipment being planned in the route planner, its quoted options and the last booking made. */
+  plan: { from: string; to: string; lines: { partNo: string; qty: number }[]; option: string | null };
+  planOptions: { id: string; mode: string; eta: string; cost: number; kind: 'road' | 'air' | 'rail' | 'courier'; tag?: string; allowed: boolean }[];
+  booked: string | null;
   mode: ColorMode;
   /** Timeline offset in days from today (-30 replay … +28 forecast). */
   t: number;
@@ -70,7 +74,7 @@ function initialState(): AppState {
   const w = innerWidth, h = innerHeight;
   const portrait = h > w * 1.05 || w < 820;
   return {
-    screen, stage: stageFor(screen), site: ['ktec', 'isu', 'dhl', 'pnq'].includes(site) ? site : 'ktec', route: 0, ship: 0, mode: 'occupancy', t: 0, off: {},
+    screen, stage: stageFor(screen), site: ['ktec', 'isu', 'dhl', 'pnq'].includes(site) ? site : 'ktec', ship: null, plan: { from: 'ktec', to: 'pnq', lines: [{ partNo: 'KM-DX-ACT-220', qty: 6 }], option: null }, planOptions: [], booked: null, mode: 'occupancy', t: 0, off: {},
     bin: { ...FEATURED_BIN }, bld: null, user: p.get('user') ?? savedUser() ?? 'rv', peel: true, floor: null, walk: false, dim: '3D', moveDraft: null, scrapId: null, scrapNew: null,
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     toast: null, overlay: null, loading: false, rev: 0,

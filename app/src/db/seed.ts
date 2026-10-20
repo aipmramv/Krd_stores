@@ -17,7 +17,13 @@ const COST: Record<string, number> = {
   'KM-LUB-SYN-005': 1200, 'KM-MOT-PM-150': 340000, 'KM-PCB-IOT-022': 8200, 'KM-SFT-BRK-090': 71333,
 };
 
-const AREAS: [string, Zone][] = [['Hazmat H-01', 'Hazmat'], ['Hazmat H-02', 'Hazmat'], ['Quarantine Q-01', 'Quarantine'], ['Heavy L0', 'Heavy'],
+/** Shipping weight per unit of measure, kg. */
+const WEIGHT: Record<string, number> = {
+  'KM-DX-ACT-220': 4.2, 'KM-MS-CTL-118': .9, 'KM-ESC-DRV-040': 135, 'KM-BAT-LI-500': 21, 'KM-SNS-LDR-077': .7, 'KM-RPE-HSR-210': .65,
+  'KM-GUI-RAL-016': 48, 'KM-CAB-PNL-301': 26, 'KM-LUB-SYN-005': .95, 'KM-MOT-PM-150': 160, 'KM-PCB-IOT-022': .25, 'KM-SFT-BRK-090': 14,
+};
+
+const AREAS: [string, Zone][] = [['Inbound staging', 'General'], ['Hazmat H-01', 'Hazmat'], ['Hazmat H-02', 'Hazmat'], ['Quarantine Q-01', 'Quarantine'], ['Heavy L0', 'Heavy'],
   ['Lab L-03', 'Lab'], ['Test tower', 'Test'], ['Scrap yard', 'Yard'], ['Yard Y-02', 'Yard']];
 
 const SITE_OF: Record<string, string> = { Chennai: 'ktec', Pune: 'pnq' };
@@ -36,7 +42,7 @@ export function seed(): { [C in Coll]: Collections[C][] } {
   ].map(u => stamp(u as User));
 
   const parts: Part[] = PARTS.map(([partNo, rev, description, category, uom, hazard, exportClass, , , , project]) =>
-    stamp({ _id: partNo, partNo, rev, description, category, uom, hazard, exportClass, project, unitCost: COST[partNo] ?? 1000 }));
+    stamp({ _id: partNo, partNo, rev, description, category, uom, hazard, exportClass, project, unitCost: COST[partNo] ?? 1000, weightKg: WEIGHT[partNo] ?? 1 }));
 
   // Every site has the modelled electronics store (4 rows × 12 bays × 4 levels) and the named areas.
   const locations: Location[] = [];

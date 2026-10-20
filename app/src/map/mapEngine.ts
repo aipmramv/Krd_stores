@@ -4,7 +4,9 @@
 import maplibregl, { type GeoJSONSource, type LngLatLike, type Map as MLMap, type Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Feature } from 'geojson';
-import { AIR, NETWORK_BOUNDS, NH48, RAIL, ROUTES, SHIPS, XFERS } from '../data/sample';
+import { AIR, NETWORK_BOUNDS, NH48, RAIL, XFERS } from '../data/sample';
+import { db, onChange } from '../db';
+import type { Shipment } from '../db/schema';
 import { SITE_BY_ID, SITES } from '../data/sites';
 import type { LatLng, ScreenId } from '../data/types';
 import { HANDOFF_ZOOM, safeCentreOffset } from '../safeArea';
@@ -115,6 +117,8 @@ class MapEngine {
       if (MAP_SCREENS.includes(getState().screen) && !this.hidden()) this.fitScreen();
     });
     this.drawSites(); this.drawXfers(); this.drawShips(); this.drawRoutes();
+    void this.loadShips();
+    onChange(c => { if (c === 'shipments') void this.loadShips(); });
     this.ready = true;
     subscribe(() => this.sync());
     requestAnimationFrame(this.anim);
@@ -130,7 +134,8 @@ class MapEngine {
     if (!MAP_SCREENS.includes(s.screen)) return;
     const changed = (k: keyof AppState) => s[k] !== p[k];
     if (changed('site') || changed('off') || changed('screen')) this.drawSites();
-    if (s.screen === 'routes' && (changed('route') || changed('off') || changed('screen'))) this.drawRoutes();
+    if (s.screen === 'routes' && (changed('plan') || changed('planOptions') || changed('off') || changed('screen'))) this.drawRoutes();
+    if (s.screen === 'routes' && (changed('plan') && (s.plan.from !== p.plan?.from || s.plan.to !== p.plan?.to))) this.fitScreen();
     if (s.screen !== 'routes' && (changed('ship') || changed('screen'))) this.drawShips();
     if (changed('off') || changed('screen')) this.layersFor(s.screen);
   }
@@ -187,13 +192,28 @@ class MapEngine {
     this.flushLines();
   }
 
-  private drawShips() {
+  /** Shipments from the data store, reloaded whenever they change. */
+  private ships: Shipment[] = [];
+  private async loadShips() {
+    this.ships = await db.find('shipments', {}, { sort: { createdAt: 1 } });
     const s = getState();
+    if (s.screen !== 'routes' && MAP_SCREENS.includes(s.screen)) { this.drawShips(); if (s.screen === 'shipments') this.fitScreen(); }
+  }
+  private selectedShip() {
+    const id = getState().ship;
+    return this.ships.find(x => x._id === id) ?? this.ships.find(x => !['Delivered', 'Cancelled'].includes(x.status)) ?? null;
+  }
+
+  private drawShips() {
+    const s = getState(), sel = this.selectedShip();
     this.clear('ship');
-    SHIPS.forEach((sh, i) => {
-      const p = bez(SITE_BY_ID[sh.from].ll, SITE_BY_ID[sh.to].ll, .08);
-      const on = i === s.ship;
-      if (sh.hold) {
+    this.ships.forEach((sh, i) => {
+      const on = sh === sel;
+      if (!on && ['Delivered', 'Cancelled', 'Awaiting EHS approval'].includes(sh.status)) return;
+      const a = SITE_BY_ID[sh.from], b = SITE_BY_ID[sh.to];
+      if (!a || !b) return;
+      const p = bez(a.ll, b.ll, .08);
+      if (sh.status === 'E-way bill hold' && sh.hold) {
         const hold = sh.hold;
         let k = 0, best = Infinity;
         p.forEach((q, j) => { const d = (q[0] - hold[0]) ** 2 + (q[1] - hold[1]) ** 2; if (d < best) { best = d; k = j; } });
@@ -201,46 +221,46 @@ class MapEngine {
         this.lines.push({ group: 'ship', pts: p.slice(k), color: '#C8312B', width: 3, dash: 'dash' });
         this.add('ship', htmlMarker(p[k], '<span class="exc"><u></u><i></i></span>', 25));
         if (s.screen === 'shipments') {
-          this.add('ship', htmlMarker(p[k], `<span class="tagm bad" style="left:-8rem;top:2.75rem"><b>E-way bill hold · Hubballi</b>${sh.carrier} · ${sh.id}</span>`, 24, () => selectShip(i)));
+          this.add('ship', htmlMarker(p[k], `<span class="tagm bad" style="left:-8rem;top:2.75rem"><b>E-way bill hold</b>${sh.carrier} · ${sh._id}</span>`, 24, () => selectShip(sh._id)));
         }
       } else {
-        const warn = sh.dot === '#C77700';
+        const warn = sh.status === 'Delay risk', moving = ['Picked up', 'In transit', 'Out for delivery'].includes(sh.status);
         this.lines.push({ group: 'ship', pts: p, color: on ? '#1450F5' : warn ? '#FFE141' : '#A1B9FB', width: on ? 5 : 2.5, opacity: on ? 1 : .9, dash: on ? 'solid' : 'dot' });
-        this.mover('ship', p, (on ? 'big ' : '') + (warn ? 'warn' : ''), sh.dur ?? 10, i * .17);
+        if (moving) this.mover('ship', p, (on ? 'big ' : '') + (warn ? 'warn' : ''), 6 + Math.min(14, km(a.ll, b.ll) / 90), i * .17);
+        else this.add('ship', htmlMarker(on ? p[0] : p[0], `<span class="tagm ${on ? 'on' : ''}" style="left:.75rem;top:-1.25rem"><b>${sh.status}</b>${sh.carrier} · ${sh._id}</span>`, on ? 23 : 21, () => selectShip(sh._id)));
       }
     });
     this.flushLines();
   }
 
-  private routeGeom(g: 'road' | 'air' | 'rail'): LatLng[] {
-    if (g === 'road') return this.roadGeom;
-    if (g === 'rail') return RAIL;
-    return [AIR.siteA, AIR.airportA, ...bez(AIR.airportA, AIR.airportB, -.12, 40), AIR.siteB];
+  /** Geometry for a planned lane and mode: real road and rail lines on the Chennai–Pune corridor, arcs elsewhere. */
+  private laneGeom(from: string, to: string, kind: string): LatLng[] {
+    const pune = (from === 'pnq') !== (to === 'pnq');
+    if (!pune) return bez(SITE_BY_ID[from].ll, SITE_BY_ID[to].ll, .12);
+    const fwd = to === 'pnq';
+    const g = kind === 'road' ? this.roadGeom : kind === 'rail' ? RAIL : [AIR.siteA, AIR.airportA, ...bez(AIR.airportA, AIR.airportB, -.12, 40), AIR.siteB];
+    const start = SITE_BY_ID[fwd ? from : to].ll;
+    const line: LatLng[] = [start, ...g.slice(1)];
+    return fwd ? line : [...line].reverse();
   }
 
   private drawRoutes() {
-    const s = getState();
+    const s = getState(), { from, to, option } = s.plan, opts = s.planOptions.filter(o => o.allowed);
     this.clear('route');
-    // Draw the selected option last so it sits on top; options that share a geometry draw once.
-    const order = ROUTES.map((_, i) => i).sort((a, b) => Number(a === s.route) - Number(b === s.route));
-    const drawn = new Set<string>();
-    order.forEach(i => {
-      const r = ROUTES[i], on = i === s.route;
-      if (drawn.has(r.geom) && !on) return;
-      drawn.add(r.geom);
-      const g = this.routeGeom(r.geom);
+    const sel = opts.find(o => o.id === option) ?? opts[0];
+    const kinds = [...new Set(opts.map(o => (o.kind === 'courier' ? 'air' : o.kind)))];
+    // Unselected lanes as dashed white, the selected one solid blue on top.
+    for (const k of kinds.sort((a, b) => Number(a === (sel?.kind === 'courier' ? 'air' : sel?.kind)) - Number(b === (sel?.kind === 'courier' ? 'air' : sel?.kind)))) {
+      const g = this.laneGeom(from, to, k), on = k === (sel?.kind === 'courier' ? 'air' : sel?.kind);
       this.lines.push(on ? { group: 'route', pts: g, color: '#1450F5', width: 6 } : { group: 'route', pts: g, color: '#FFFFFF', width: 3, opacity: .8, dash: 'dash' });
       if (on) this.mover('route', g, 'big', 10);
-    });
-    ROUTES.forEach((r, i) => {
-      if (r.fr === undefined) return;
-      const g = this.routeGeom(r.geom), p = g[Math.min(g.length - 1, Math.round((g.length - 1) * r.fr))];
-      // The split option rides on the air leg, so its tag lights the air tag.
-      const on = i === s.route || (ROUTES[s.route].fr === undefined && r.geom === ROUTES[s.route].geom);
-      this.add('route', htmlMarker(p, `<span class="tagm ${on ? 'on' : ''}" style="left:${r.ox}px;top:${r.oy}px"><b>${r.mode}</b>${r.eta} · ${r.cost}</span>`, on ? 22 : 21, () => selectRoute(i)));
+    }
+    opts.forEach((o, i) => {
+      const g = this.laneGeom(from, to, o.kind === 'courier' ? 'air' : o.kind), p = g[Math.round((g.length - 1) * (.35 + i * .1))];
+      this.add('route', htmlMarker(p, `<span class="tagm ${o === sel ? 'on' : ''}" style="left:${(i % 2 ? 1 : -1) * 3.5}rem;top:${i * 1.6 - 2}rem"><b>${o.mode}</b>${o.eta} · ₹${o.cost.toLocaleString('en-IN')}</span>`, o === sel ? 22 : 21, () => selectRoute(o.id)));
     });
     this.areas = [];
-    if (isOn(s, 'routes', 'weather')) {
+    if (isOn(s, 'routes', 'weather') && (from === 'pnq' || to === 'pnq')) {
       this.areas.push({ type: 'Feature', properties: { color: '#FFE141' }, geometry: { type: 'Polygon', coordinates: [circle([16.9, 74.05], 75000)] } });
       this.add('route', htmlMarker([16.2, 72.4], '<span class="tagm warn"><b>Heavy rain alert · Western Ghats</b>Road leg +6 h risk</span>', 21));
     }
@@ -313,8 +333,8 @@ class MapEngine {
     if (!this.map) return;
     const s = getState();
     if (s.screen === 'network') this.fit(NETWORK_BOUNDS, undefined, 1200);
-    if (s.screen === 'routes') this.fit([...NH48, ...RAIL], undefined, 800);
-    if (s.screen === 'shipments') { const sh = SHIPS[s.ship]; this.fit([SITE_BY_ID[sh.from].ll, SITE_BY_ID[sh.to].ll], 10, 800); }
+    if (s.screen === 'routes') this.fit(['road', 'rail', 'air'].flatMap(k => this.laneGeom(s.plan.from, s.plan.to, k)), 10, 800);
+    if (s.screen === 'shipments') { const sh = this.selectedShip(); if (sh) this.fit([SITE_BY_ID[sh.from].ll, SITE_BY_ID[sh.to].ll], 10, 800); }
   }
 
   /** Map centre that puts `ll` at the centre of the stage's safe area (where the 3D view centres the site), flat and north-up. */

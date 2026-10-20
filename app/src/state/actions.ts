@@ -7,7 +7,8 @@ import { threeEngine } from '../three/engine';
 import { db } from '../db';
 import * as moves from '../services/moves';
 import * as scrap from '../services/scrap';
-import { getState, MAP_SCREENS, setState, stageFor, USER_KEY } from './store';
+import * as ships from '../services/shipments';
+import { getState, MAP_SCREENS, setState, stageFor, USER_KEY, type AppState } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
 const isSiteScreen = (s: ScreenId) => s === 'site' || s === 'movements';
@@ -102,8 +103,8 @@ export function pinSite(id: string) {
   if (getState().screen !== 'network') go('network');
   else mapEngine.flyTo(SITE_BY_ID[id].ll, 8);
 }
-export const selectRoute = (i: number) => setState({ route: i });
-export function selectShip(i: number) { setState({ ship: i }); mapEngine.fitScreen(); }
+export const selectRoute = (id: string) => setState(s => ({ plan: { ...s.plan, option: id } }));
+export function selectShip(id: string) { setState({ ship: id }); mapEngine.fitScreen(); }
 export function setMode(mode: ColorMode) { setState({ mode }); threeEngine.recolorBins(); }
 export function toggleLayer(id: string) {
   setState(s => {
@@ -186,6 +187,51 @@ export async function confirmMove(id: string) {
   const mv = await moves.complete(id, getState().user).catch(fail);
   if (mv) toast(`${id} done · stock moved and bins updated`);
 }
+// ---------- Shipments ----------
+type Plan = AppState['plan'];
+export const setPlan = (p: Partial<Plan>) => setState(s => ({ plan: { ...s.plan, ...p }, booked: null }));
+export const setPlanOptions = (planOptions: AppState['planOptions']) => setState(s => ({
+  planOptions,
+  plan: planOptions.some(o => o.id === s.plan.option && o.allowed) ? s.plan : { ...s.plan, option: planOptions.find(o => o.allowed)?.id ?? null },
+}));
+export async function bookPlan() {
+  const s = getState();
+  if (!s.plan.option) { toast('Choose a shipping option'); return; }
+  const sh = await ships.book({ from: s.plan.from, to: s.plan.to, lines: s.plan.lines, optionId: s.plan.option }, s.user).catch(fail);
+  if (!sh) return;
+  setState({ booked: sh._id, ship: sh._id });
+  toast(sh.status === 'Booked' ? `Booked ${sh._id} · ${sh.carrier} · pick-up ${new Date(sh.pickupAt!).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : `${sh._id} held for EHS approval · dangerous goods`);
+}
+/** Split: dangerous goods by road, everything else by the selected option. */
+export async function splitPlan() {
+  const s = getState(), parts = new Map((await db.find('parts')).map(p => [p._id, p]));
+  const haz = s.plan.lines.filter(l => /UN\d/.test(parts.get(l.partNo)?.hazard ?? '')), rest = s.plan.lines.filter(l => !haz.includes(l));
+  if (!haz.length || !rest.length) { toast('Nothing to split · all items can travel together'); return; }
+  const road = ships.quote(s.plan.from, s.plan.to, haz, parts).find(o => o.allowed && o.kind === 'road');
+  if (!road || !s.plan.option) { toast('No road option can carry the dangerous goods'); return; }
+  const a = await ships.book({ from: s.plan.from, to: s.plan.to, lines: haz, optionId: road.id }, s.user).catch(fail);
+  if (!a) return;
+  const b = await ships.book({ from: s.plan.from, to: s.plan.to, lines: rest, optionId: s.plan.option }, s.user).catch(fail);
+  if (!b) { toast(`${a._id} booked for the dangerous goods; the rest could not be booked`); return; }
+  setState({ booked: b._id, ship: b._id });
+  toast(`Split · ${a._id} (Li-ion, ${road.mode}) and ${b._id} (${b.option})`);
+}
+const shipDone = (msg: string) => (x: unknown) => { if (x) toast(msg); };
+export const shipApprove = (id: string, d: 'approved' | 'rejected' = 'approved') => ships.approveHazmat(id, getState().user, d).catch(fail).then(shipDone(d === 'approved' ? `${id} approved by EHS · booked` : `${id} rejected · stock released`));
+export const shipAdvance = (id: string) => ships.advance(id, getState().user).catch(fail).then(x => { if (x) toast(`${id} · ${x.status}${x.status === 'Delivered' ? ' · received into inbound staging, put-away tasks created' : x.status === 'Picked up' ? ' · stock left the source site' : ''}`); });
+export const shipClearHold = (id: string, note: string) => ships.clearHold(id, getState().user, note).catch(fail).then(shipDone(`${id} hold cleared · back in transit`));
+export const shipNotify = (id: string) => ships.notifyReceiver(id, getState().user).catch(fail).then(shipDone(`Receiver notified · Teams and email · ${id}`));
+export const shipClaim = (id: string, kind: 'Damage' | 'Shortage' | 'Delay', amount: number, note: string) => ships.raiseClaim(id, { kind, amount, note }, getState().user).catch(fail).then(shipDone(`${kind} claim raised on ${id}`));
+export const shipCancel = (id: string) => ships.cancelShipment(id, getState().user).catch(fail).then(shipDone(`${id} cancelled · stock released`));
+export async function openShipDoc(id: string, kind: string) {
+  const [s, parts] = await Promise.all([db.get('shipments', id), db.find('parts')]);
+  if (!s) return;
+  const w = window.open('', '_blank');
+  if (!w) { toast('Allow pop-ups to open documents'); return; }
+  w.document.write(ships.documentHtml(s, kind, new Map(parts.map(p => [p._id, p]))));
+  w.document.close();
+}
+
 // ---------- Scrap cases ----------
 export const openScrap = (id: string) => setState({ scrapId: id, scrapNew: null });
 export const newScrap = (lotId?: string) => { setState({ scrapNew: { lotId }, scrapId: null }); threeEngine.hideRadial(); };

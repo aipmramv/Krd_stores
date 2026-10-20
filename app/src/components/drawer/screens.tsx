@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { ROUTES, SHIPS } from '../../data/sample';
 import { primary, SITE_BY_ID, SITES } from '../../data/sites';
 import { loadPhotos } from '../../services/photos';
 import { binId, rnd } from '../../data/storeModel';
 import { useDoc, useQuery } from '../../db/hooks';
 import { MoveForm, MoveList } from './moves';
 import { ScrapCaseView, ScrapList, ScrapNew } from './scrap';
-import { binAction, enterFloor, exitFloor, focusBuilding, go, newScrap, openPhoto, selectRoute, selectShip, selectSite, startMove, toast, toggleWalk } from '../../state/actions';
+import { binAction, enterFloor, exitFloor, focusBuilding, go, newScrap, openPhoto, selectSite, startMove, toast, toggleWalk } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
 
@@ -74,82 +73,7 @@ export function NetworkDrawer() {
   );
 }
 
-export function RoutesDrawer() {
-  const sel = useApp(s => s.route);
-  return (
-    <DrawerFrame title="Route planner" foot={<>
-      <button className="btn primary" onClick={() => toast(`Booked · ${ROUTES[sel].carrier} · pickup tomorrow 09:00`)}>Book selected option</button>
-      <button className="btn" onClick={() => toast('Split shipment · choose pallets per leg')}>Split shipment</button>
-    </>}>
-      <div className="dh">
-        <span className="eb">KTEC Chennai → KTEC Pune</span><h2>6 pallets for DX Class 2027 build</h2>
-        <div className="chips" style={{ marginTop: '.75rem' }}>
-          <span className="chip">2.4 t</span><span className="chip">8.6 m³</span>
-          <span className="chip" style={{ background: '#FFCDD7' }}>Li-ion UN3480</span><span className="chip">Need by 22 Oct</span>
-        </div>
-      </div>
-      <Eb>Best options · live traffic and weather</Eb>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem', padding: '0 1.25rem 1rem' }}>
-        {ROUTES.map((r, i) => (
-          <button key={i} className={`opt ${i === sel ? 'on' : ''}`} onClick={() => selectRoute(i)} aria-pressed={i === sel}>
-            <div className="top"><b style={{ fontSize: '.9375rem' }}>{r.mode}</b><span className="chip" style={{ background: r.tagBg }}>{r.tag}</span></div>
-            <span style={{ fontSize: '.75rem', color: '#4A4D55' }}>{r.carrier}</span>
-            <div className="m">
-              <div><span>ETA</span><b>{r.eta}</b></div><div><span>Cost</span><b>{r.cost}</b></div><div><span>CO₂e</span><b>{r.co2}</b></div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </DrawerFrame>
-  );
-}
-
-type Milestone = [string, string, 0 | 1 | 2]; // 0 pending, 1 done, 2 exception
-
-export function ShipmentsDrawer() {
-  const sel = useApp(s => s.ship), sh = SHIPS[sel];
-  const ms: Milestone[] = sh.hold
-    ? [['Picked up · ' + SITE_BY_ID[sh.from].name, '16 Oct, 18:20', 1], ['Departed Chennai hub', '17 Oct, 06:05', 1],
-      ['E-way bill mismatch · held at Hubballi', '18 Oct, 08:40 · delay risk high', 2], ['Delivered · ' + SITE_BY_ID[sh.to].name, 'ETA 21 Oct (was 19 Oct)', 0]]
-    : [['Picked up · ' + SITE_BY_ID[sh.from].name, '17 Oct, 15:10', 1], ['In transit', 'Last scan 18 Oct, 07:55', 1], ['Delivered · ' + SITE_BY_ID[sh.to].name, sh.eta, 0]];
-  return (
-    <DrawerFrame title="Shipment tracker" foot={<>
-      <button className="btn primary" onClick={() => toast('Receiver notified · Teams and email')}>Notify receiver</button>
-      <button className="btn" onClick={() => toast('Opening POD and documents')}>Docs</button>
-      <button className="btn" onClick={() => go('routes')}>Re-route</button>
-      <button className="btn" onClick={() => toast('Claim draft created')}>Claim</button>
-    </>}>
-      <div className="dh">
-        <span className="eb">All carriers · India</span>
-        <div className="chips" style={{ marginTop: '.75rem' }}>
-          <span className="chip dark">All 142</span><span className="chip">Inbound 88</span><span className="chip">Outbound 54</span>
-          <span className="chip" style={{ background: '#FFCDD7' }}>Exceptions 5</span>
-        </div>
-      </div>
-      <div className="rows">
-        {SHIPS.map((x, i) => (
-          <button key={x.id} className={`rowbtn ${i === sel ? 'sel' : ''}`} onClick={() => selectShip(i)}>
-            <span><b>{x.carrier} · {x.id}</b><small>{SITE_BY_ID[x.from].name} → {SITE_BY_ID[x.to].name}</small></span>
-            <span className="rt">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '.375rem', justifyContent: 'flex-end' }}><Dot c={x.dot} />{x.status}</span>
-              <small>{x.eta}</small>
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="st"><span className="eb ink">Milestones · {sh.id}</span></div>
-      {ms.map(([a, b, c], i) => (
-        <div className="ms" key={i}>
-          <div className="rail2">
-            <i style={c === 2 ? { background: '#C8312B', boxShadow: '0 0 0 4px #FFCDD7' } : c === 0 ? { background: '#fff', border: '2px solid #C4C7CD' } : undefined} />
-            {i < ms.length - 1 && <u style={c === 2 || ms[i + 1][2] === 0 ? { background: '#DEE0E4' } : undefined} />}
-          </div>
-          <div className="txt"><b style={c === 2 ? { color: '#C8312B' } : c === 0 ? { color: '#767A82' } : undefined}>{a}</b><small>{b}</small></div>
-        </div>
-      ))}
-    </DrawerFrame>
-  );
-}
+export { RoutesDrawer, ShipmentsDrawer } from './shipments';
 
 function Sources({ site }: { site: string }) {
   const st = useApp(s => s.siteStats[site]);

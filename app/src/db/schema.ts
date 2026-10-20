@@ -17,6 +17,8 @@ export interface User extends Doc { name: string; initials: string; email: strin
 export interface Part extends Doc {
   partNo: string; rev: string; description: string; category: string; uom: string;
   hazard: string; exportClass: string; project: string; unitCost: number;
+  /** Shipping weight per unit of measure, kg. */
+  weightKg: number;
 }
 
 export type Zone = 'ESD' | 'General' | 'Hazmat' | 'Quarantine' | 'Heavy' | 'Yard' | 'Lab' | 'Test';
@@ -58,13 +60,20 @@ export interface ScrapCase extends Doc {
   owner: string; history?: CaseEvent[];
 }
 
-export interface Milestone { label: string; at?: string; done: boolean }
+export interface Milestone { label: string; at?: string; done: boolean; note?: string }
 export interface ShipmentItem { partNo: string; qty: number }
+export interface Allocation { lotId: string; partNo: string; qty: number }
+export interface Claim { at: string; by: string; kind: 'Damage' | 'Shortage' | 'Delay'; amount: number; note: string; status: 'Open' | 'Settled' }
+export type ShipStatus = 'Awaiting EHS approval' | 'Booked' | 'Picked up' | 'In transit' | 'Out for delivery' | 'Delivered' | 'E-way bill hold' | 'Delay risk' | 'Cancelled';
 export interface Shipment extends Doc {
   site: string; carrier: string; mode: 'road' | 'air' | 'rail' | 'courier';
-  from: string; to: string; eta: string; status: string; dir: 'in' | 'out';
+  from: string; to: string; eta: string; status: ShipStatus | string; dir: 'in' | 'out';
   items: ShipmentItem[]; milestones: Milestone[]; docs: string[];
   hold?: LatLng; cost?: number;
+  /** Booking made in the app: option, booking reference, who booked, allocated stock. */
+  option?: string; ref?: string; bookedBy?: string; pickupAt?: string; etaAt?: string; co2?: string; weightKg?: number;
+  alloc?: Allocation[]; approvals?: Approval[]; hazmat?: boolean;
+  notifiedAt?: string; claims?: Claim[];
 }
 
 export interface Carrier extends Doc { name: string; modes: Shipment['mode'][]; contact: string }
