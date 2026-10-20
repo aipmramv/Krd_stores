@@ -5,6 +5,7 @@ import { mapEngine } from '../map/mapEngine';
 import { loadPhotos } from '../services/photos';
 import { threeEngine } from '../three/engine';
 import { db } from '../db';
+import * as moves from '../services/moves';
 import { getState, MAP_SCREENS, setState, stageFor, USER_KEY } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
@@ -141,16 +142,51 @@ export function selectBin(b: Bin) { setState({ bin: b }); }
 
 export function binAction(a: string) {
   const { bin } = getState(), id = binId(bin);
-  if (a === 'Move') { setState({ moveFrom: { ...bin } }); threeEngine.hideRadial(); return; }
+  if (a === 'Move') { startMove(bin); return; }
   const what = a === 'Scrap' ? 'scrap case started, add reason and photo'
     : a === 'Count' ? 'cycle count task sent to scanner'
     : a === 'Reserve' ? 'reserved 4 for DX Class 2027' : 'opened';
   toast(`${a} · ${id} · ${what}`);
 }
-export function cancelMove() { setState({ moveFrom: null }); threeEngine.showRadial(); }
-export function completeMove(a: Bin, b: Bin) {
-  setState({ moveFrom: null, bin: b });
-  toast(`Move request MR-26-1184 created · ${binId(a)} → ${binId(b)} · sent to stores for scan confirmation`);
+// ---------- Move requests ----------
+/** Start drawing a move from a bin: the destination comes from a tap, a drag or the form. */
+export function startMove(from: Bin, to: Bin | null = null) {
+  setState({ moveDraft: { from: { ...from }, to: to && binId(to) !== binId(from) ? { ...to } : null }, bin: { ...from } });
+  threeEngine.hideRadial();
+  threeEngine.drawMoves();
+}
+export function setMoveTarget(to: Bin) {
+  const d = getState().moveDraft;
+  if (!d) return;
+  if (binId(to) === binId(d.from)) { toast('Choose a different bin as the destination'); return; }
+  setState({ moveDraft: { ...d, to: { ...to } } });
+  threeEngine.drawMoves();
+}
+export function cancelMove() { setState({ moveDraft: null }); threeEngine.drawMoves(); threeEngine.showRadial(); }
+
+const fail = (e: unknown) => { toast((e as Error).message); return null; };
+
+export async function submitMove(lotId: string, qty: number, reason: string) {
+  const s = getState(), d = s.moveDraft;
+  if (!d?.to) { toast('Choose the destination bin'); return; }
+  const mv = await moves.requestMove({ site: s.site, lotId, to: `${s.site}:${binId(d.to)}`, qty, reason }, s.user).catch(fail);
+  if (!mv) return;
+  setState({ moveDraft: null });
+  threeEngine.drawMoves();
+  threeEngine.showRadial();
+  toast(mv.status === 'approved' ? `${mv._id} approved · ${qty} × ${mv.partNo} ${binId(d.from)} → ${binId(d.to)} · ready to move` : `${mv._id} sent to the store manager for approval`);
+}
+export async function decideMove(id: string, decision: 'approved' | 'rejected') {
+  const mv = await moves.decide(id, decision, getState().user).catch(fail);
+  if (mv) toast(`${id} ${decision === 'approved' ? (mv.status === 'approved' ? 'approved · ready to move' : 'approved · next approver notified') : 'rejected · requester notified'}`);
+}
+export async function confirmMove(id: string) {
+  const mv = await moves.complete(id, getState().user).catch(fail);
+  if (mv) toast(`${id} done · stock moved and bins updated`);
+}
+export async function cancelMoveRequest(id: string) {
+  const mv = await moves.cancel(id, getState().user).catch(fail);
+  if (mv) toast(`${id} cancelled`);
 }
 
 export function zoom(d: 1 | -1) {
@@ -169,6 +205,6 @@ export function toggleDim() {
 export function escape() {
   const s = getState();
   closeOverlay();
-  if (s.moveFrom) setState({ moveFrom: null });
+  if (s.moveDraft) cancelMove();
   else if (!s.overlay && s.screen === 'site' && s.floor !== null) { if (s.walk) toggleWalk(); else exitFloor(); }
 }

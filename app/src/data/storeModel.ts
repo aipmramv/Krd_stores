@@ -14,6 +14,12 @@ export const rnd = (a: number, b: number, c: number) => {
 
 export const binId = ({ r, i, k }: Bin) => `${ROWS[r]}-${String(i + 1).padStart(2, '0')}-${String(k + 1).padStart(2, '0')}`;
 
+/** Bin for a location code such as A-05-04 (null for areas outside the racks). */
+export function binOf(code: string | undefined): Bin | null {
+  const m = /^([A-D])-(\d\d)-(\d\d)$/.exec(code?.split(':').pop() ?? '');
+  return m ? { r: ROWS.indexOf(m[1]), i: +m[2] - 1, k: +m[3] - 1 } : null;
+}
+
 export function binColor(mode: ColorMode, { r, i, k }: Bin): string {
   const v = rnd(r, i, k), L = LEGENDS[mode];
   if (mode === 'occupancy') return v < .25 ? L[0][0] : v < .5 ? L[1][0] : v < .75 ? L[2][0] : v < .92 ? L[3][0] : L[4][0];

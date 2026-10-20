@@ -69,3 +69,19 @@ All data goes through `src/db`:
   seeded from `seed.ts`. Use Display → *Reset to the starting sample* to start over. With
   `VITE_API_URL` set, the app uses the API in `/server` (MongoDB or Azure Cosmos DB).
 - The Role pill switches between the demo users. `npm test` runs the data-layer tests.
+
+## Move requests
+
+`src/services/moves.ts` runs the workflow: requested → approved (chain from `approvalRules`,
+kind `move`) → done. Rejected and cancelled moves end early. The stock lot moves only when a
+store clerk or store manager confirms the move was made.
+
+To start a move in the store twin, press and hold a bin and drag it to the destination. You can
+also tap Move or Relocate and then tap, or choose, the destination. The checks:
+
+- you can't move more than is free (on hand, less reserved, less what is already moving);
+- hazmat stays in hazmat areas and ESD parts stay in ESD zones;
+- the destination needs room.
+
+Open requests show in the bin drawer and in Moves & scrap, with the actions your role allows.
+Arcs mark them in the store: yellow while awaiting approval, blue once approved.

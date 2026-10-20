@@ -2,8 +2,10 @@ import { useEffect } from 'react';
 import { ROUTES, SHIPS } from '../../data/sample';
 import { primary, SITE_BY_ID, SITES } from '../../data/sites';
 import { loadPhotos } from '../../services/photos';
-import { binId, partInBin, rnd } from '../../data/storeModel';
-import { binAction, enterFloor, exitFloor, focusBuilding, go, openPhoto, selectRoute, selectShip, selectSite, toast, toggleWalk } from '../../state/actions';
+import { binId, rnd } from '../../data/storeModel';
+import { useDoc, useQuery } from '../../db/hooks';
+import { MoveForm, MoveList } from './moves';
+import { binAction, enterFloor, exitFloor, focusBuilding, go, openPhoto, selectRoute, selectShip, selectSite, startMove, toast, toggleWalk } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
 
@@ -259,46 +261,55 @@ export function SiteDrawer() {
 }
 
 export function StoreDrawer() {
-  const bin = useApp(s => s.bin), id = binId(bin);
-  const { part: p, featured } = partInBin(bin);
-  const occ = Math.round(45 + rnd(bin.r, bin.i, bin.k) * 55);
+  const bin = useApp(s => s.bin), site = useApp(s => s.site), draft = useApp(s => s.moveDraft), id = binId(bin);
+  const loc = `${site}:${id}`;
+  const lots = useQuery('stockLots', { locationId: loc }).data, parts = useQuery('parts').data;
+  const location = useDoc('locations', loc).data;
+  const inbound = useQuery('movements', { to: loc, status: { $in: ['requested', 'approved'] } }).data;
+  const last = useQuery('movements', { $or: [{ from: loc }, { to: loc }], status: 'done' }, { sort: { updatedAt: -1 }, limit: 1 }).data[0];
+  if (draft) return <DrawerFrame title="Move request"><MoveForm /></DrawerFrame>;
+  const main = lots[0], part = parts.find(p => p._id === main?.partNo);
+  const onHand = lots.reduce((n, l) => n + l.qty, 0), reserved = lots.reduce((n, l) => n + l.reserved, 0);
+  const into = inbound.reduce((n, m) => n + m.qty, 0), cap = location?.capacity ?? 60;
+  const occ = Math.round(Math.min(1, onHand / cap) * 100);
   return (
     <DrawerFrame title="Bin">
       <div className="dh">
-        <span className="eb">Bin {id} · Electronics store</span>
+        <span className="eb">Bin {id} · Electronics store{location ? ` · ${location.zone}` : ''}</span>
         <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem' }}>
-          <div className="thumb" style={{ width: '5.5rem', height: '5.5rem', flex: 'none' }}>Part image</div>
+          <div className="thumb" style={{ width: '5.5rem', height: '5.5rem', flex: 'none' }}>{part ? 'Part image' : 'Empty'}</div>
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ margin: 0, fontSize: '1.125rem' }}>{p[2]}</h2>
-            <p>{p[0]} · rev {p[1]}</p>
-            <div className="chips" style={{ marginTop: '.5rem' }}>
-              {p[5] !== '—' && <span className="chip" style={{ background: '#D2F5FF' }}>{p[5]}</span>}
-              <span className="chip">{p[10]}</span>
-            </div>
+            <h2 style={{ margin: 0, fontSize: '1.125rem' }}>{part?.description ?? 'Empty bin'}</h2>
+            <p>{part ? `${part.partNo} · rev ${part.rev}` : 'Free for put-away'}</p>
+            {part && <div className="chips" style={{ marginTop: '.5rem' }}>
+              {part.hazard !== '—' && <span className="chip" style={{ background: '#D2F5FF' }}>{part.hazard}</span>}
+              <span className="chip">{main.project}</span>
+            </div>}
           </div>
         </div>
       </div>
       <div className="kpis k3">
-        <div><span>On hand</span><b>{p[7]}</b></div><div><span>Reserved</span><b>{p[8]}</b></div><div><span>Inbound</span><b>{featured ? '+20' : '—'}</b></div>
+        <div><span>On hand</span><b>{onHand}</b></div><div><span>Reserved</span><b>{reserved}</b></div><div><span>Inbound</span><b>{into ? `+${into}` : '—'}</b></div>
       </div>
       <div className="kv">
-        <div><span>Owner project</span><span>{p[10]}</span></div>
-        <div><span>Last movement</span><span>Put-away · 14 Oct · S. Iyer</span></div>
-        <div><span>Next event</span><span>{featured ? 'Issue 4 to Lab L-03 · 20 Oct' : 'None planned'}</span></div>
+        <div><span>Last movement</span><span>{last ? `${last.type} · ${last.qty} · ${new Date(last.updatedAt ?? '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'None recorded'}</span></div>
+        <div><span>Next event</span><span>{inbound[0] ? `${inbound[0]._id} · ${inbound[0].reason ?? inbound[0].type}` : 'None planned'}</span></div>
         <div style={{ flexDirection: 'column', gap: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Volume used</span><span style={{ color: '#141414' }}>{occ}%</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Volume used</span><span style={{ color: '#141414' }}>{occ}% of {cap}</span></div>
           <div className="bar6"><i style={{ width: `${occ}%` }} /></div>
         </div>
       </div>
       <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">Stock units</span></div>
       <div className="rows">
-        <div><span>Lot 26-0912-A</span><span>8</span><span style={{ color: '#1B7F4E' }}>Available</span></div>
-        <div><span>Lot 26-0912-B</span><span>4</span><span style={{ color: '#1450F5' }}>Reserved</span></div>
-        {featured && <div><span>PO 4500182</span><span>20</span><span style={{ color: '#767A82' }}>Planned · 21 Oct</span></div>}
+        {lots.length ? lots.map(l => (
+          <div key={l._id}><span>Lot {l.lot}</span><span>{l.qty}</span><span style={{ color: l.reserved ? '#1450F5' : '#1B7F4E' }}>{l.reserved ? `${l.reserved} reserved` : l.status}</span></div>
+        )) : <div><span style={{ color: '#767A82' }}>No stock in this bin</span></div>}
       </div>
+      <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">Move requests</span></div>
+      <MoveList filter={{ $or: [{ from: loc }, { to: loc }] }} empty="No move requests for this bin." />
       <div className="grid3">
         {['Pick', 'Put-away', 'Reserve', 'Count', 'Relocate', 'Label'].map((a, j) => (
-          <button key={a} className={`btn ${j === 0 ? 'primary' : ''}`} onClick={() => binAction(a === 'Relocate' ? 'Move' : a)}>{a}</button>
+          <button key={a} className={`btn ${j === 0 ? 'primary' : ''}`} onClick={() => (a === 'Relocate' ? startMove(bin) : binAction(a))}>{a}</button>
         ))}
       </div>
     </DrawerFrame>
@@ -313,9 +324,11 @@ export function MovementsDrawer() {
     <DrawerFrame title="Movements and scrap" foot={<>
       <button className="btn primary" onClick={() => toast('Approved · forwarded to finance controller')}>Approve</button>
       <button className="btn" onClick={() => toast('Rejected · returned to lab owner')}>Reject</button>
-      <button className="btn" onClick={() => toast('Move request form opened')}>Request move</button>
+      <button className="btn" onClick={() => { go('store'); toast('Press and hold a bin, then drag it to the destination'); }}>Request move</button>
     </>}>
-      <div className="dh">
+      <div className="st"><span className="eb ink">{`Move requests · ${site.short}`}</span></div>
+      <MoveList filter={{ site: site.id }} empty="No move requests at this site yet. Press and hold a bin in the store twin to start one." />
+      <div className="dh" style={{ borderTop: '1px solid #DEE0E4' }}>
         <span className="eb">Scrap case · awaiting your approval</span><h2>SC-2026-0418</h2>
         <p>6 × KM-SFT-BRK-090 safety brake · consumed in test campaign TC-114 drop test</p>
       </div>

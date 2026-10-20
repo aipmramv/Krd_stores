@@ -151,11 +151,11 @@ export function Timeline({ hidden }: { hidden: boolean }) {
 }
 
 export function MoveBanner() {
-  const from = useApp(s => s.moveFrom), screen = useApp(s => s.screen);
-  if (!from || screen !== 'store') return null;
+  const d = useApp(s => s.moveDraft), screen = useApp(s => s.screen);
+  if (!d || d.to || screen !== 'store') return null;
   return (
     <div className="banner">
-      <span>Tap the destination bin for {binId(from)}</span>
+      <span>Tap the destination bin for {binId(d.from)} · or press and drag from a bin</span>
       <button className="btn" onClick={cancelMove}>Cancel</button>
     </div>
   );

@@ -4,14 +4,15 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SITE_BY_ID } from '../data/sites';
-import { EXCEPTION_BIN, ROWS } from '../data/storeModel';
+import { binId, EXCEPTION_BIN, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
 import { HANDOFF_ZOOM, metresPerPixel, stageSafeArea, type Rect } from '../safeArea';
-import { binAction, completeMove, enterFloor, go, openPhoto, selectBin, selectBuilding, toast } from '../state/actions';
+import { binAction, enterFloor, go, openPhoto, selectBin, selectBuilding, setMoveTarget, startMove, toast } from '../state/actions';
+import { loadStoreView, onStoreView } from '../services/storeView';
 import { getState, isOn, setState, subscribe, THREE_SCREENS } from '../state/store';
 import { Labels } from './labels';
 import { buildSite, setHovered, siteCached, type SiteScene } from './site';
-import { binPos, buildStore, drawMove, recolorBins, ROWZ, X0 } from './store3d';
+import { binPos, buildStore, drawMoves, recolorBins, ROWZ, X0 } from './store3d';
 
 const RADIAL = ['Move', 'Reserve', 'Count', 'Scrap', 'History', 'Docs'];
 const H = () => document.documentElement;
@@ -62,16 +63,36 @@ class ThreeEngine {
     ctl.autoRotateSpeed = .5;
     // Any manual orbit ends a cinematic tour and an in-flight camera move.
     ctl.addEventListener('start', () => { this.tween = null; if (getState().tour) setState({ tour: false }); });
-    // Treat a press that barely moves as a tap, so orbiting never selects things.
+    // Treat a press that barely moves as a tap, so orbiting never selects things. In the store,
+    // pressing and holding a bin starts a move: drag to the destination bin and let go.
     let down: [number, number] | null = null;
-    R.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+    R.domElement.addEventListener('pointerdown', e => {
+      down = [e.clientX, e.clientY];
+      const b = getState().screen === 'store' && !getState().moveDraft ? this.binAt(e) : null;
+      if (b) this.press = setTimeout(() => { this.press = null; this.dragFrom = b; this.dragTo = null; ctl.enabled = false; navigator.vibrate?.(15); startMove(b); }, 420);
+    });
     R.domElement.addEventListener('pointerup', e => {
+      clearTimeout(this.press ?? undefined); this.press = null;
+      if (this.dragFrom) {
+        if (this.dragTo) setMoveTarget(this.dragTo);
+        this.dragFrom = this.dragTo = null; ctl.enabled = true; down = null;
+        return;
+      }
       if (!down) return;
       const d = Math.hypot(e.clientX - down[0], e.clientY - down[1]);
       down = null;
       if (d < 8) this.pick(e);
     });
-    R.domElement.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') this.hover(e); });
+    R.domElement.addEventListener('pointermove', e => {
+      if (this.press && down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { clearTimeout(this.press); this.press = null; }
+      if (this.dragFrom) {
+        const b = this.binAt(e), to = b && binId(b) !== binId(this.dragFrom) ? b : null;
+        if ((to && binId(to)) !== (this.dragTo && binId(this.dragTo))) { this.dragTo = to; drawMoves({ from: this.dragFrom, to }); }
+        return;
+      }
+      if (e.pointerType === 'mouse') this.hover(e);
+    });
+    onStoreView(() => { recolorBins(); drawMoves(getState().moveDraft); });
     new ResizeObserver(() => this.resize()).observe(el);
     addEventListener('resize', () => { this.sa = null; });
     document.addEventListener('transitionend', () => { this.sa = null; });
@@ -79,6 +100,19 @@ class ThreeEngine {
     this.resize();
     this.loop();
   }
+
+  private press: ReturnType<typeof setTimeout> | null = null;
+  private dragFrom: Bin | null = null;
+  private dragTo: Bin | null = null;
+
+  private binAt(e: PointerEvent): Bin | null {
+    this.ray.setFromCamera(this.ndc(e), this.cam);
+    const st = buildStore(), hit = this.ray.intersectObject(st.bins)[0];
+    return hit && hit.instanceId !== undefined ? st.idx[hit.instanceId] : null;
+  }
+
+  /** Redraw the move arcs, including the request being drawn. */
+  drawMoves() { drawMoves(getState().moveDraft); }
 
   private hidden() { return !this.el || this.el.classList.contains('hidden'); }
 
@@ -240,7 +274,7 @@ class ThreeEngine {
       const st = buildStore(), hit = this.ray.intersectObject(st.bins)[0];
       if (hit && hit.instanceId !== undefined) {
         const b = st.idx[hit.instanceId];
-        if (s.moveFrom) { this.makeMove(s.moveFrom, b); return; }
+        if (s.moveDraft && !s.moveDraft.to) { setMoveTarget(b); return; }
         selectBin(b); this.showRadial(); return;
       }
       this.hideRadial();
@@ -313,11 +347,6 @@ class ThreeEngine {
     this.fly(target.clone().addScaledVector(dir, dist), target, 1200);
   }
 
-  private makeMove(a: Bin, b: Bin) {
-    drawMove(a, b);
-    completeMove(a, b);
-    this.showRadial();
-  }
 
   // ---------- Labels ----------
   private siteLabels(res: SiteScene) {
@@ -447,6 +476,7 @@ class ThreeEngine {
       this.active = st.sc;
       this.labels!.clear(); this.storeLabels();
       this.showRadial();
+      void loadStoreView(getState().site).then(() => { recolorBins(); drawMoves(getState().moveDraft); });
       this.cam.near = .5; this.cam.far = 2000;
       this.cam.position.set(0, 70, .1); ctl.target.set(0, 0, 0); ctl.minDistance = 8; ctl.maxDistance = 90; ctl.maxPolarAngle = 1.42;
       const k = this.fitK();

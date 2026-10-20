@@ -1,8 +1,11 @@
 // Electronics store twin: racks with instanced bins coloured by the active mode, zones,
 // planned inbound pallets as translucent ghosts, and a pulsing exception bin.
 import * as THREE from 'three';
-import { BAYS, binColor, EXCEPTION_BIN, isReserved, LEVELS, rnd, ROWS } from '../data/storeModel';
-import type { Bin } from '../data/types';
+import { LEGENDS } from '../data/sample';
+import { BAYS, binColor, binId, binOf, EXCEPTION_BIN, isReserved, LEVELS, rnd, ROWS } from '../data/storeModel';
+import type { Bin, ColorMode } from '../data/types';
+import type { Part, StockLot } from '../db/schema';
+import { getStoreView } from '../services/storeView';
 import { getState, isOn } from '../state/store';
 
 export const BAY = 2.7, LV = 1.55, ROWZ = [-9, -3, 3, 9], X0 = -16.2;
@@ -120,19 +123,60 @@ export function buildStore(): StoreScene {
   return cached;
 }
 
-export function recolorBins() {
-  if (!cached) return;
-  const { bins, idx } = cached, s = getState(), c = new THREE.Color();
-  const resv = isOn(s, 'store', 'resv');
-  idx.forEach((b, n) => { c.set(resv && isReserved(b) ? '#FFFFFF' : binColor(s.mode, b)); bins.setColorAt(n, c); });
-  bins.instanceColor!.needsUpdate = true;
+const EMPTY = '#3A3D44';
+const PROJECT: Record<string, number> = { 'DX Class 2027': 0, 'MonoSpace retrofit': 1, 'Escalator drive test': 2 };
+
+/** Colour and fill of a bin from its stock lots, for the active colour mode. */
+export function binLook(mode: ColorMode, lots: StockLot[], parts: Map<string, Part>, capacity: number): { col: string; fill: number } {
+  const qty = lots.reduce((n, l) => n + l.qty, 0);
+  if (!qty) return { col: EMPTY, fill: .06 };
+  const L = LEGENDS[mode], f = Math.min(1, qty / capacity);
+  const fill = .2 + .8 * f;
+  if (mode === 'occupancy') return { col: f < .25 ? L[0][0] : f < .5 ? L[1][0] : f < .75 ? L[2][0] : f < .92 ? L[3][0] : L[4][0], fill };
+  if (mode === 'ageing') {
+    const days = Math.max(...lots.map(l => (Date.now() - Date.parse(l.receivedAt)) / 86400000));
+    return { col: days < 30 ? L[0][0] : days < 90 ? L[1][0] : days < 180 ? L[2][0] : L[3][0], fill };
+  }
+  if (mode === 'project') return { col: L[PROJECT[lots[0].project] ?? 3][0], fill };
+  const hz = lots.map(l => parts.get(l.partNo)?.hazard ?? '');
+  return { col: hz.some(h => /UN\d|Flammable/.test(h)) ? L[2][0] : hz.some(h => h === 'ESD') ? L[0][0] : L[3][0], fill };
 }
 
-export function drawMove(a: Bin, b: Bin) {
+export function recolorBins() {
+  if (!cached) return;
+  const { bins, idx } = cached, s = getState(), c = new THREE.Color(), m = new THREE.Matrix4();
+  const resv = isOn(s, 'store', 'resv'), view = getStoreView()?.site === s.site ? getStoreView() : null;
+  idx.forEach((b, n) => {
+    if (!view) { c.set(resv && isReserved(b) ? '#FFFFFF' : binColor(s.mode, b)); bins.setColorAt(n, c); return; }
+    const code = binId(b), lots = view.lots.get(code) ?? [];
+    const { col, fill } = binLook(s.mode, lots, view.parts, view.locs.get(code)?.capacity ?? 60);
+    c.set(resv && lots.some(l => l.reserved > 0) ? '#FFFFFF' : col);
+    bins.setColorAt(n, c);
+    const p = binPos(b);
+    m.compose(p.setY(p.y - .575 * (1 - fill)), new THREE.Quaternion(), new THREE.Vector3(1, fill, 1));
+    bins.setMatrixAt(n, m);
+  });
+  bins.instanceColor!.needsUpdate = true;
+  bins.instanceMatrix.needsUpdate = true;
+  bins.computeBoundingSphere();
+}
+
+function arc(a: Bin, b: Bin, col: string, r = .12) {
+  const p0 = binPos(a), p2 = binPos(b), mid = p0.clone().add(p2).multiplyScalar(.5);
+  mid.y += 3 + p0.distanceTo(p2) * .15;
+  return new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(p0, mid, p2), 40, r, 8, false), new THREE.MeshBasicMaterial({ color: col, toneMapped: false }));
+}
+
+/** Arcs for the open move requests (yellow awaiting approval, blue approved) and the one being drawn. */
+export function drawMoves(draft?: { from: Bin; to: Bin | null } | null) {
   if (!cached) return;
   const g = cached.moveLine;
+  g.children.forEach(o => (o as THREE.Mesh).geometry?.dispose());
   g.clear();
-  const p0 = binPos(a), p2 = binPos(b), mid = p0.clone().add(p2).multiplyScalar(.5);
-  mid.y += 5;
-  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(p0, mid, p2), 40, .12, 8, false), new THREE.MeshBasicMaterial({ color: '#FFE141' })));
+  const view = getStoreView();
+  if (view?.site === getState().site) for (const mv of view.moves) {
+    const a = binOf(mv.from), b = binOf(mv.to);
+    if (a && b) g.add(arc(a, b, mv.status === 'approved' ? '#1450F5' : '#FFE141'));
+  }
+  if (draft?.to) g.add(arc(draft.from, draft.to, '#FFFFFF', .16));
 }

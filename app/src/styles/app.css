@@ -300,6 +300,20 @@ html.portrait .rep main{padding:1.25rem}
 .photos button:hover img{transform:scale(1.06)}
 .photos .src{position:absolute;left:0;right:0;bottom:0;padding:.125rem .375rem;background:rgba(20,20,20,.6);color:#fff;font-size:.625rem;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .note{padding:0 1.25rem 1rem;font-size:.75rem;color:#767A82}
+.note.bad{color:#C8312B}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.375rem;padding:.875rem 1.25rem}
+.fld{display:flex;flex-direction:column;gap:.375rem;padding:0 1.25rem .875rem;font-size:.75rem;color:#767A82}
+.fld select,.fld input{min-height:var(--hit);border:1px solid #C4C7CD;border-radius:4px;padding:0 .625rem;font:inherit;font-size:.875rem;color:#141414;background:#fff;min-width:0}
+.stepper{display:flex;gap:.375rem}
+.stepper input{width:5rem;text-align:center}
+.stepper button{width:var(--hit);min-height:var(--hit);border:1px solid #C4C7CD;border-radius:4px;background:#fff;font-size:1.125rem;cursor:pointer}
+.stepper button.all{width:auto;padding:0 .875rem;font-size:.8125rem}
+.mvlist{display:flex;flex-direction:column}
+.mvrow{padding:.75rem 1.25rem;border-top:1px solid #EFF1F4;display:flex;flex-direction:column;gap:.375rem}
+.mvhd{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;font-size:.8125rem}
+.mvhd small,.mvmeta{display:block;font-size:.75rem;color:#4A4D55;line-height:1.35}
+.mvact{display:flex;gap:.375rem;flex-wrap:wrap}
+.mvact .btn{flex:1 1 auto}
 .addr{font-size:.8125rem;color:#4A4D55;margin:.5rem 0 0;line-height:1.4}
 .overlay.dark{background:rgba(10,10,12,.86);align-items:center;padding:1rem}
 .lightbox{margin:0;display:flex;flex-direction:column;gap:.75rem;max-width:min(80rem,100%);max-height:100%}

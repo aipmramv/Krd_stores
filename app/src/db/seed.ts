@@ -42,7 +42,7 @@ export function seed(): { [C in Coll]: Collections[C][] } {
   SITES.forEach((site, si) => {
     for (let r = 0; r < ROWS.length; r++) for (let i = 0; i < BAYS; i++) for (let k = 0; k < LEVELS; k++) {
       const b: Bin = { r, i, k }, code = binId(b);
-      locations.push(stamp({ _id: `${site.id}:${code}`, site: site.id, store: 'electronics', code, zone: r < 2 ? 'ESD' : 'General', rack: r, bay: i, level: k, capacity: 60 }));
+      locations.push(stamp({ _id: `${site.id}:${code}`, site: site.id, store: 'electronics', code, zone: 'ESD', rack: r, bay: i, level: k, capacity: 60 }));
       // The primary site fills every bin; the others about two in three.
       if (si > 0 && rnd(r + si * 7, i, k) > .66) continue;
       const { part } = si === 0 ? partInBin(b) : partInBin({ r: (r + si) % 4, i: (i + si * 3) % BAYS, k });
