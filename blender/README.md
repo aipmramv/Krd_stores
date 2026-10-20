@@ -12,6 +12,10 @@ models made in Blender, which look much closer to the real buildings.
   collection, everything else goes in **Context** for reference. With `--export` it writes each
   KONE building to `app/public/models/sites/<site>/<key>.glb` and updates `manifest.json`.
 - `build_assets.py` builds the shared props: the test tower, trucks and trees.
+- `kosmo_one.py` models Kosmo One for KTEC Chennai by hand: Tower B (KTEC) with one group per
+  storey (`floor_0` = ground … `floor_12`), Tower A and the plaza. The floor plate outline and the
+  level heights are stored on the `main` root as custom properties (glTF extras), so the app can
+  open a floor and furnish it. Facilities with `levels` in `sites.ts` use this.
 
 ## Workflow
 

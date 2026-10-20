@@ -3,7 +3,7 @@ import { ROUTES, SHIPS } from '../../data/sample';
 import { primary, SITE_BY_ID, SITES } from '../../data/sites';
 import { loadPhotos } from '../../services/photos';
 import { binId, partInBin, rnd } from '../../data/storeModel';
-import { binAction, focusBuilding, go, openPhoto, selectRoute, selectShip, selectSite, toast } from '../../state/actions';
+import { binAction, enterFloor, exitFloor, focusBuilding, go, openPhoto, selectRoute, selectShip, selectSite, toast, toggleWalk } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
 
@@ -162,9 +162,59 @@ function Sources({ site }: { site: string }) {
   );
 }
 
+/** Sites whose primary tower is modelled storey by storey: only the KTEC floors, each one enterable. */
+function TowerDrawer() {
+  const id = useApp(s => s.site), fl = useApp(s => s.floor), walk = useApp(s => s.walk), site = SITE_BY_ID[id];
+  const main = primary(site), floors = main.floors!;
+  const isStore = fl === main.storeFloor;
+  const tower = main.n.split(' · ')[0];
+  if (fl === null) return (
+    <DrawerFrame title="Site twin" foot={<>
+      <button className="btn primary" onClick={() => enterFloor(main.storeFloor ?? 0)}>Enter {floors[main.storeFloor ?? 0][0]}</button>
+      <button className="btn" onClick={() => go('store')}>Electronics store</button>
+    </>}>
+      <div className="dh">
+        <span className="eb">{site.type}</span><h2>{site.name}</h2>
+        <p className="addr">{site.address}</p>
+      </div>
+      <Sources site={id} />
+      <Eb>{`KTEC floors · ${tower}`}</Eb>
+      <div className="rows">
+        {floors.map((_, i) => i).reverse().map(i => (
+          <button key={i} className="rowbtn" onClick={() => enterFloor(i)}>
+            <span><b>{floors[i][0]}</b><small>KTEC</small></span><b>Enter ›</b>
+          </button>
+        ))}
+      </div>
+      <Eb>Photos near this site</Eb>
+      <Photos site={id} max={9} />
+    </DrawerFrame>
+  );
+  return (
+    <DrawerFrame title="Floor" foot={<>
+      <button className="btn primary" onClick={toggleWalk}>{walk ? 'View from above' : 'Walk in'}</button>
+      {isStore && <button className="btn" onClick={() => go('store')}>Open electronics store</button>}
+      <button className="btn" onClick={exitFloor}>Back to tower</button>
+    </>}>
+      <div className="dh">
+        <span className="eb">{`${tower} · Kosmo One`}</span><h2>{`${floors[fl][0]} · KTEC`}</h2>
+      </div>
+      <Eb>Other KTEC floors</Eb>
+      <div className="rows">
+        {floors.map((_, i) => i).reverse().filter(i => i !== fl).map(i => (
+          <button key={i} className="rowbtn" onClick={() => enterFloor(i)}>
+            <span><b>{floors[i][0]}</b></span><b>Go ›</b>
+          </button>
+        ))}
+      </div>
+    </DrawerFrame>
+  );
+}
+
 export function SiteDrawer() {
   const b = useApp(s => s.bld), id = useApp(s => s.site), site = SITE_BY_ID[id];
   const main = primary(site), f = b ? site.facilities.find(x => x.k === b) : null;
+  if (main.levels) return <TowerDrawer />;
   return (
     <DrawerFrame title="Site twin" foot={<>
       <button className="btn primary" onClick={() => go('store')}>Enter electronics store</button>

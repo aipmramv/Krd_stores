@@ -1,6 +1,7 @@
 {
   "ktec": {
+    "main": "ktec/main.glb",
     "twa": "ktec/twa.glb",
-    "main": "ktec/main.glb"
+    "plaza": "ktec/plaza.glb"
   }
 }

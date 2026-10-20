@@ -47,12 +47,12 @@ export const STATUS_DOT: Record<PartStatus, string> = {
 };
 
 /** Fallback road geometry KTEC Chennai (Ambattur) → KTEC Pune (Aundh) along NH48 via Bengaluru; replaced by OSRM when reachable. */
-export const NH48: LatLng[] = [[13.09217, 80.16324], [13.04, 79.93], [12.92, 79.13], [12.52, 78.21], [12.97, 77.59], [13.34, 77.10], [14.23, 76.40], [14.46, 75.92], [15.36, 75.12], [15.85, 74.50], [16.70, 74.24], [17.68, 74.00], [18.46, 73.85], [18.5631, 73.8078]];
+export const NH48: LatLng[] = [[13.0922, 80.16336], [13.04, 79.93], [12.92, 79.13], [12.52, 78.21], [12.97, 77.59], [13.34, 77.10], [14.23, 76.40], [14.46, 75.92], [15.36, 75.12], [15.85, 74.50], [16.70, 74.24], [17.68, 74.00], [18.46, 73.85], [18.5631, 73.8078]];
 /** Chennai Central → Pune Junction via Renigunta, Guntakal and Solapur. */
-export const RAIL: LatLng[] = [[13.09217, 80.16324], [13.0827, 80.2757], [13.08, 79.67], [13.63, 79.51], [15.17, 77.37], [16.20, 77.36], [17.06, 76.99], [17.66, 75.91], [18.46, 74.58], [18.5285, 73.8743], [18.5631, 73.8078]];
+export const RAIL: LatLng[] = [[13.0922, 80.16336], [13.0827, 80.2757], [13.08, 79.67], [13.63, 79.51], [15.17, 77.37], [16.20, 77.36], [17.06, 76.99], [17.66, 75.91], [18.46, 74.58], [18.5285, 73.8743], [18.5631, 73.8078]];
 /** Site → MAA airport, flight, PNQ airport → site. */
 export const AIR: { siteA: LatLng; airportA: LatLng; airportB: LatLng; siteB: LatLng } = {
-  siteA: [13.09217, 80.16324], airportA: [12.99, 80.17], airportB: [18.58, 73.92], siteB: [18.5631, 73.8078],
+  siteA: [13.0922, 80.16336], airportA: [12.99, 80.17], airportB: [18.58, 73.92], siteB: [18.5631, 73.8078],
 };
 
 export const ROUTES: RouteOption[] = [

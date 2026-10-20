@@ -24,6 +24,10 @@ export interface AppState {
   bin: Bin;
   bld: string | null;
   peel: boolean;
+  /** Opened floor of the primary building, as an index into its `floors`; null shows the whole tower. */
+  floor: number | null;
+  /** Inside the opened floor at eye level rather than looking into it from above. */
+  walk: boolean;
   dim: '3D' | '2D';
   moveFrom: Bin | null;
   kiosk: boolean;
@@ -57,7 +61,7 @@ function initialState(): AppState {
   const portrait = h > w * 1.05 || w < 820;
   return {
     screen, stage: stageFor(screen), site: ['ktec', 'isu', 'dhl', 'pnq'].includes(site) ? site : 'ktec', route: 0, ship: 0, mode: 'occupancy', t: 0, off: {},
-    bin: { ...FEATURED_BIN }, bld: null, peel: true, dim: '3D', moveFrom: null,
+    bin: { ...FEATURED_BIN }, bld: null, peel: true, floor: null, walk: false, dim: '3D', moveFrom: null,
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     toast: null, overlay: null, loading: false, rev: 0,
     tod: null, fade: null, tour: false,

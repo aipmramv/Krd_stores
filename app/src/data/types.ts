@@ -22,6 +22,8 @@ export interface Facility {
   alert?: boolean;
   /** The facility's floors bottom to top; only the primary facility has them and peels open. */
   floors?: [name: string, space: string][];
+  /** Building level of each entry in `floors` (0 = ground), when the model has a group per level. */
+  levels?: number[];
   /** Index of the floor holding the electronics store. */
   storeFloor?: number;
   /** Placed by the app instead of matched to OSM: a Blender model or an open yard. */

@@ -258,7 +258,7 @@ def export(site):
         for o in [root, *root.children_recursive]:
             o.select_set(True)
         f = os.path.join(out, f'{root.name}.glb')
-        bpy.ops.export_scene.gltf(filepath=f, export_format='GLB', use_selection=True, export_yup=True, export_apply=True)
+        bpy.ops.export_scene.gltf(filepath=f, export_format='GLB', use_selection=True, export_yup=True, export_apply=True, export_extras=True)
         files[root.name] = f"{site['id']}/{root.name}.glb"
         print('exported', os.path.relpath(f, ROOT))
     manifest_path = os.path.join(OUT, 'manifest.json')

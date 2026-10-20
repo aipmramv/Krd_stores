@@ -10,6 +10,7 @@ import type { Facility, Site } from '../data/types';
 import { fetchOsm, inside, polyStats, projector, type OsmBuilding, type OsmData, type Pt } from '../services/osm';
 import { getState, isOn, setState } from '../state/store';
 import { instance, loadModel, loadSiteModels, placeModel, treeVariants } from './models';
+import { buildInterior, type Interior } from './interior';
 import { SkyRig } from './sky';
 import { allFacades, facadeMaterial, roofMaterial } from './textures';
 
@@ -24,6 +25,8 @@ export interface FacilityMeta {
   obj: THREE.Object3D;
   slabs?: THREE.Object3D[];
   outline?: THREE.LineSegments;
+  /** Modelled tower with a group per level: floor plate outline (scene x/z) and level heights. */
+  tower?: { plan: [number, number][]; z: number[]; interiors: Record<number, Interior> };
 }
 export interface Flow { curve: THREE.QuadraticBezierCurve3; ball: THREE.Mesh; off: number; label: string; col: string; layer: string; mid: THREE.Vector3 }
 interface Mover { obj: THREE.Object3D; path: THREE.Vector3[]; len: number[]; total: number; s: number; v: number; dir: number }
@@ -43,6 +46,8 @@ export interface SiteScene {
   groundReady: Promise<void>;
   /** Scene x/z for a latitude/longitude. */
   toScene(lat: number, lon: number): THREE.Vector3;
+  /** Centre and size of one level of the primary tower, for framing an opened floor. */
+  levelFrame(level: number): { c: THREE.Vector3; r: number; plan: [number, number][] } | null;
 }
 
 const OSM_TILES = 'https://tile.openstreetmap.org';
@@ -102,6 +107,24 @@ function ribbon(pts: Pt[], w: number, y: number) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.computeVertexNormals();
+  return g;
+}
+
+/** Vertical band `off` metres outside a closed outline (scene x/z), from y to y + h. */
+function ribbonV(plan: [number, number][], y: number, h: number, off: number) {
+  const n = plan.length, pos: number[] = [];
+  const out = plan.map(([x, z], i) => {
+    const [x0, z0] = plan[(i - 1 + n) % n], [x1, z1] = plan[(i + 1) % n];
+    const dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1;
+    // Outward for the clockwise-in-scene outline (counter-clockwise in plan).
+    return [x - dz / l * off, z + dx / l * off];
+  });
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = out[i], [bx, bz] = out[(i + 1) % n];
+    pos.push(ax, y, az, bx, y, bz, bx, y + h, bz, ax, y, az, bx, y + h, bz, ax, y + h, az);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   return g;
 }
 
@@ -169,13 +192,15 @@ async function build(site: Site): Promise<SiteScene> {
   const data = src === 'osm' ? osm! : stylised(site);
 
   // ---------- Facilities: Blender-modelled KONE buildings, then match the rest to OSM ----------
-  // Hand-modelled buildings sit at their own site coordinates and replace the OSM buildings under them.
+  // Hand-modelled buildings sit at their own site coordinates and replace the OSM buildings under
+  // them. Models that are not KONE facilities (a neighbouring tower, the plaza) are scenery.
   const hero = await loadSiteModels(site.id);
-  const heroBox: Record<string, THREE.Box3> = {};
-  for (const [k, m] of Object.entries(hero)) if (site.facilities.some(f => f.k === k)) heroBox[k] = new THREE.Box3().setFromObject(m);
-  const underHero = (b: OsmBuilding) => Object.values(heroBox).some(bx => b.c[0] > bx.min.x - 4 && b.c[0] < bx.max.x + 4 && -b.c[1] > bx.min.z - 4 && -b.c[1] < bx.max.z + 4);
+  const heroBox: Record<string, THREE.Box3> = {}, sceneryBox: Record<string, THREE.Box3> = {};
+  for (const [k, m] of Object.entries(hero)) (site.facilities.some(f => f.k === k) ? heroBox : sceneryBox)[k] = new THREE.Box3().setFromObject(m);
+  const boxes = [...Object.values(heroBox), ...Object.values(sceneryBox)];
+  const underHero = (b: OsmBuilding) => boxes.some(bx => b.c[0] > bx.min.x - 4 && b.c[0] < bx.max.x + 4 && -b.c[1] > bx.min.z - 4 && -b.c[1] < bx.max.z + 4);
   const blds = data.buildings.filter(b => !underHero(b));
-  const heroPolys: Pt[][] = Object.values(heroBox).map(({ min, max }) => [[min.x, -min.z], [max.x, -min.z], [max.x, -max.z], [min.x, -max.z], [min.x, -min.z]]);
+  const heroPolys: Pt[][] = boxes.filter(b => b.max.y > 3).map(({ min, max }) => [[min.x, -min.z], [max.x, -min.z], [max.x, -max.z], [min.x, -max.z], [min.x, -min.z]]);
   const matched = new Map<OsmBuilding, Facility>();
   const toMatch = site.facilities.filter(f => !f.modelled && !heroBox[f.k]);
   const atSite = heroBox.main ? undefined : blds.find(b => inside([0, 0], b.pts) && b.area > 200);
@@ -194,26 +219,62 @@ async function build(site: Site): Promise<SiteScene> {
   const outlineMat = new THREE.LineBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: .9 });
   const footprintRadius = (b: OsmBuilding) => Math.sqrt(b.area / Math.PI);
 
+  const towerMats: { m: THREE.MeshStandardMaterial; part: string; level: number }[] = [];
+  const ktecBand = new THREE.MeshBasicMaterial({ color: '#1450F5', toneMapped: false, transparent: true, opacity: .95 });
   for (const [k, box] of Object.entries(heroBox)) {
     const f = site.facilities.find(x => x.k === k)!, model = hero[k];
-    // Floors are the objects named floor_0, floor_1, … so the primary building still peels open.
+    // Floors are the objects named floor_0, floor_1, …: by level when the facility lists `levels`
+    // (a group per storey), otherwise one per entry in `floors`.
     const floors: THREE.Object3D[] = [];
     model.traverse(o => { const m = /^floor_(\d+)$/.exec(o.name); if (m) floors[+m[1]] = o; });
     const slabs = f.floors && floors.length ? floors.filter(Boolean) : undefined;
+    let ex: Record<string, unknown> | undefined;
+    model.traverse(o => { if (o.userData.plan) ex = o.userData; });
     model.traverse(o => {
       if (!(o as THREE.Mesh).isMesh) return;
       let floor: number | undefined;
       for (let p: THREE.Object3D | null = o; p; p = p.parent) { const i = slabs?.indexOf(p) ?? -1; if (i >= 0) { floor = i; break; } }
+      // Each storey gets its own materials so it can fade on its own when a floor is opened.
+      const mesh = o as THREE.Mesh;
+      if (f.levels && floor !== undefined) {
+        const m = (mesh.material as THREE.MeshStandardMaterial).clone();
+        mesh.material = m;
+        const part = /glass/.test(o.name) ? 'glass' : /louvre|crown/.test(o.name) ? 'louvres' : 'solid';
+        towerMats.push({ m, part, level: floor });
+      }
       o.userData = { k, floor };
       pickables.push(o);
     });
     slabs?.forEach(sl => { sl.userData.base = sl.position.y; });
+    let tower: FacilityMeta['tower'];
+    if (ex && f.levels) {
+      const plan = (JSON.parse(ex.plan as string) as [number, number][]).map(([x, y]) => [x, -y] as [number, number]);
+      const z = JSON.parse(ex.levels as string) as number[];
+      tower = { plan, z, interiors: {} };
+      // A KONE-blue band marks each KTEC floor on the facade, and its interior is ready to open.
+      f.levels.forEach((lv, i) => {
+        const band = new THREE.Mesh(ribbonV(plan, z[lv] + .15, .55, 1.9), ktecBand);
+        slabs?.[lv]?.add(band);
+        const it = buildInterior(plan, z[lv + 1] - z[lv], i === f.storeFloor);
+        it.group.position.y = z[lv];
+        it.group.scale.y = .01; it.group.visible = false;
+        if (it.storePad) { it.storePad.userData = { k, store: true }; pickables.push(it.storePad); }
+        konGroup.add(it.group);
+        tower!.interiors[lv] = it;
+      });
+    }
     const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
     const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(size.x + .6, size.y + .3, size.z + .6)), outlineMat);
     outline.position.copy(c);
     outline.visible = false;
     konGroup.add(model, outline);
-    meta[k] = { f, k, c: new THREE.Vector3(c.x, 0, c.z), h: box.max.y, size: Math.max(size.x, size.z) / 2, obj: model, slabs, outline };
+    meta[k] = { f, k, c: new THREE.Vector3(c.x, 0, c.z), h: box.max.y, size: Math.max(size.x, size.z) / 2, obj: model, slabs, outline, tower };
+  }
+  const heroGlass = towerMats.filter(x => x.part === 'glass' && x.m.emissiveMap);
+  for (const [k, box] of Object.entries(sceneryBox)) {
+    const model = hero[k];
+    model.traverse(o => { const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (m?.emissiveMap) heroGlass.push({ m, part: 'glass', level: -1 }); });
+    (box.max.y > 3 ? ctxGroup : sc).add(model);
   }
   for (const b of blds) {
     const f = matched.get(b);
@@ -420,18 +481,49 @@ async function build(site: Site): Promise<SiteScene> {
 
   const spread = Object.values(meta).reduce((m, x) => Math.max(m, x.c.distanceTo(center) + x.size), 0);
   const radius = THREE.MathUtils.clamp(spread + 60, 180, 520);
-  stats({ buildings: blds.length, trees: treeList.length, roads: data.roads.length, modelled: Object.keys(heroBox).map(k => site.facilities.find(f => f.k === k)!.n.split(' · ')[0]) });
+  const label = (k: string) => { let l: string | undefined; hero[k].traverse(o => { l ??= o.userData.label as string | undefined; }); return l ?? site.facilities.find(f => f.k === k)?.n.split(' · ')[0] ?? k; };
+  stats({ buildings: blds.length, trees: treeList.length, roads: data.roads.length, modelled: Object.keys(hero).map(label) });
 
   const v = new THREE.Vector3(), q = new THREE.Vector3();
   let last = 0;
   sc.userData.tick = (t: number) => {
     const dt = Math.min(.1, t - last); last = t;
     const s = getState();
-    const peel = s.peel && s.screen === 'site';
-    meta.main?.slabs?.forEach((m, i) => {
-      const target = m.userData.base + (peel ? i * 10 : 0);
-      m.position.y += (target - m.position.y) * .12;
-    });
+    const mm = meta.main, tw = mm?.tower;
+    if (tw && mm.f.levels) {
+      // An opened floor: storeys above lift away and ghost, its own glass clears and the
+      // furnished interior grows up from the slab. Walking in puts the storeys back overhead.
+      const fi = s.screen === 'site' ? s.floor : null, L = fi === null ? null : mm.f.levels[fi], walk = s.walk && L !== null;
+      mm.slabs?.forEach((sl, j) => {
+        const lift = L !== null && !walk && j > L ? 80 + (j - L) * 3 : 0;
+        sl.position.y += (sl.userData.base + lift - sl.position.y) * Math.min(1, dt * 4.5);
+      });
+      for (const { m, part, level } of towerMats) {
+        let o = 1;
+        if (L !== null && level > L && !walk) o = .1;
+        else if (L !== null && level === L && part !== 'solid') o = walk ? (part === 'glass' ? .2 : 1) : .06;
+        m.opacity += (o - m.opacity) * Math.min(1, dt * 5);
+        m.transparent = m.opacity < .995; m.depthWrite = m.opacity > .5;
+        const ktec = mm.f.levels.includes(level);
+        if (part === 'glass' && m.emissiveMap) {
+          const hot = ktec && L === null && hoveredLevel === level;
+          m.emissive.set(hot ? '#5C86FF' : '#FFFFFF');
+          m.emissiveIntensity = hot ? .9 : (1 - sky.day) * 1.1;
+        }
+      }
+      for (const [lv, it] of Object.entries(tw.interiors)) {
+        const want = +lv === L ? 1 : 0, g = it.group;
+        g.scale.y += (Math.max(.01, want) - g.scale.y) * Math.min(1, dt * (want ? 3 : 8));
+        g.visible = g.scale.y > .02;
+        it.ceiling.visible = walk && +lv === L;
+      }
+    } else {
+      const peel = s.peel && s.screen === 'site';
+      meta.main?.slabs?.forEach((m, i) => {
+        const target = m.userData.base + (peel ? i * 10 : 0);
+        m.position.y += (target - m.position.y) * .12;
+      });
+    }
     flows.forEach(f => { f.ball.position.copy(f.curve.getPoint((t * .16 + f.off) % 1)); });
     for (const m of movers) {
       m.s += m.v * dt * m.dir;
@@ -454,17 +546,25 @@ async function build(site: Site): Promise<SiteScene> {
     mapGroup.visible = !imgGroup.visible;
     treeGroup.visible = isOn(s, scr, 'trees');
     vehGroup.visible = isOn(s, scr, 'veh');
-    for (const m of Object.values(meta)) if (m.outline) m.outline.visible = s.bld === m.k || hovered === m.k;
+    for (const m of Object.values(meta)) if (m.outline) m.outline.visible = !m.tower && (s.bld === m.k || hovered === m.k);
     const night = 1 - sky.day;
     for (const m of allFacades()) m.emissiveIntensity = night * .9;
+    for (const { m, level } of heroGlass) if (level < 0) m.emissiveIntensity = night * 1.1;
   };
 
   const res: SiteScene = {
     site, sc, sky, meta, flows, pickables, src, center, radius, groundReady,
     toScene(lat, lon) { const [x, y] = xy(lat, lon); return new THREE.Vector3(x, 0, -y); },
+    levelFrame(level) {
+      const tw = meta.main?.tower;
+      if (!tw) return null;
+      const xs = tw.plan.map(p => p[0]), zs = tw.plan.map(p => p[1]);
+      const c = new THREE.Vector3((Math.min(...xs) + Math.max(...xs)) / 2, tw.z[level], (Math.min(...zs) + Math.max(...zs)) / 2);
+      return { c, r: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs)) / 2, plan: tw.plan };
+    },
   };
   return res;
 }
 
-let hovered: string | null = null;
-export const setHovered = (k: string | null) => { hovered = k; };
+let hovered: string | null = null, hoveredLevel: number | null = null;
+export const setHovered = (k: string | null, level: number | null = null) => { hovered = k; hoveredLevel = level; };

@@ -9,25 +9,14 @@ export const SITES: Site[] = [
   {
     id: 'ktec', name: 'KTEC Chennai', short: 'KTEC Chennai', type: 'R&D centre · Ambattur', kind: 'rnd',
     address: 'Tower-B, Kosmo One (One India Bulls Tech Park), Plot No. 14, 3rd Main Rd, Sai Nagar, Ambattur Industrial Estate, Chennai, Tamil Nadu 600058',
-    ll: [13.09217, 80.16324], ellH: -74, space: 78, value: '₹152 Cr', ship: 37, left: false,
+    ll: [13.0922, 80.16336], ellH: -74, space: 78, value: '₹152 Cr', ship: 37, left: false,
     facilities: [
-      { k: 'main', n: 'Tower-B · KTEC', s: 'Labs, prototype store, engineering', info: 'KTEC labs, prototype and electronics store on the lower floors, engineering above', col: '#A1B9FB', facade: 'glass',
-        floors: [['Lower floors · labs and electronics store', '84%'], ['Middle floors · engineering', '61%'], ['Upper floors · offices', '—']], storeFloor: 0 },
-      { k: 'twa', n: 'Tower-A · tech park', s: 'Shared amenities', info: 'Neighbouring tower in Kosmo One · shared cafeteria and training rooms', col: '#D2F5FF', facade: 'glass' },
-      { k: 'park', n: 'Multi-level parking', s: 'Visitor and staff', info: 'Parking and courier drop-off', col: '#F7F8FA', facade: 'concrete' },
-      { k: 'stg', n: 'Service yard and receiving', s: '5 inbound today', info: 'Goods receiving for the tech park · 5 inbound today, 2 slots free', col: '#AAE1C8', facade: 'metal' },
-      HAZMAT,
+      { k: 'main', n: 'Tower B · KTEC', s: 'KTEC on floors 3, 7, 8, 10 and 12', info: 'KONE Technology Centre occupies floors 3, 7, 8, 10 and 12 of Tower B, Kosmo One', col: '#A1B9FB', facade: 'glass',
+        floors: [['Floor 3', ''], ['Floor 7', ''], ['Floor 8', ''], ['Floor 10', ''], ['Floor 12', '']], levels: [3, 7, 8, 10, 12], storeFloor: 0 },
     ],
-    flows: [
-      ['stg', 'main', '#AAE1C8', 'Put-away · 18 cartons', 'flows'],
-      ['main', 'haz', '#FFCDD7', 'Li-ion packs to hazmat · 4', 'flows'],
-      ['main', 'stg', '#A1B9FB', 'Prototypes to ISU · 6 crates', 'flows'],
-      ['main', 'park', '#C8312B', 'E-waste · SC-2026-0421', 'scrapf'],
-    ],
+    flows: [],
     alerts: [
-      ['Hazmat store temperature 31 °C', 'Limit 25 °C · 12 min ago', '#C8312B'],
       ['Cycle count variance, C-10-04', 'System 40 · scanned 36', '#C8312B'],
-      ['Inbound pressure on receiving, 21 Oct', '5 deliveries planned · 2 slots free', '#C77700'],
     ],
   },
   {

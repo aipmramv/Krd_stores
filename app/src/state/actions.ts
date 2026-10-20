@@ -44,7 +44,23 @@ export function go(screen: ScreenId) {
   if (isSiteScreen(screen) && isMap(s.screen) && mapEngine.ready) { void flyIntoSite(screen); return; }
   if (isMap(screen) && isSiteScreen(s.screen) && s.stage === 'three') { void riseOutOfSite(screen); return; }
   if (isSiteScreen(screen)) loadPhotos(s.site);
-  setState({ screen, stage: stageFor(screen) });
+  setState({ screen, stage: stageFor(screen), ...(screen === 'site' || screen === 'store' ? {} : { floor: null, walk: false }) });
+}
+
+/** Open one floor of the primary building: the storeys above lift away and the camera glides in. */
+export function enterFloor(i: number) {
+  setState({ bld: 'main', floor: i, walk: false });
+  threeEngine.showFloor();
+}
+export function exitFloor() {
+  if (getState().floor === null) return;
+  setState({ floor: null, walk: false });
+  threeEngine.showFloor();
+}
+/** Step inside the opened floor at eye level, or back out to the cutaway. */
+export function toggleWalk() {
+  setState(s => ({ walk: !s.walk }));
+  threeEngine.showFloor();
 }
 
 /** Switch site from inside the 3D twin: up to the map, across to the new site, and back down. */
@@ -56,7 +72,7 @@ async function travel(id: string) {
     mapEngine.handoffFrom = from.ll;
     setState({ stage: 'map', fade: 'in' });
     await sleep(FADE_MS);
-    setState({ fade: null, site: id, bld: null });
+    setState({ fade: null, site: id, bld: null, floor: null, walk: false });
   } finally { busy = false; }
   await flyIntoSite(screen);
 }
@@ -73,7 +89,7 @@ export function selectSite(id: string) {
   if (busy || id === s.site && isSiteScreen(s.screen)) return;
   loadPhotos(id);
   if (isSiteScreen(s.screen) && s.stage === 'three') { void travel(id); return; }
-  setState({ site: id, bld: null });
+  setState({ site: id, bld: null, floor: null, walk: false });
   if (isMap(s.screen)) mapEngine.flyTo(SITE_BY_ID[id].ll, 8);
 }
 /** Map pin click: select the site and return to the network view if needed. */
@@ -132,7 +148,7 @@ export function zoom(d: 1 | -1) {
 }
 export function resetView() {
   if (isMap(getState().screen)) mapEngine.fitScreen();
-  else void threeEngine.enter({ reset: true });
+  else { setState({ floor: null, walk: false }); void threeEngine.enter({ reset: true }); }
 }
 export function toggleDim() {
   setState(s => ({ dim: s.dim === '3D' ? '2D' : '3D' }));
@@ -140,6 +156,8 @@ export function toggleDim() {
 }
 
 export function escape() {
+  const s = getState();
   closeOverlay();
-  if (getState().moveFrom) setState({ moveFrom: null });
+  if (s.moveFrom) setState({ moveFrom: null });
+  else if (!s.overlay && s.screen === 'site' && s.floor !== null) { if (s.walk) toggleWalk(); else exitFloor(); }
 }

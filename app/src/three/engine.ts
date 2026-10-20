@@ -7,7 +7,7 @@ import { SITE_BY_ID } from '../data/sites';
 import { EXCEPTION_BIN, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
 import { HANDOFF_ZOOM, metresPerPixel, stageSafeArea, type Rect } from '../safeArea';
-import { binAction, completeMove, go, openPhoto, selectBin, selectBuilding, toast } from '../state/actions';
+import { binAction, completeMove, enterFloor, go, openPhoto, selectBin, selectBuilding, toast } from '../state/actions';
 import { getState, isOn, setState, subscribe, THREE_SCREENS } from '../state/store';
 import { Labels } from './labels';
 import { buildSite, setHovered, siteCached, type SiteScene } from './site';
@@ -17,7 +17,7 @@ const RADIAL = ['Move', 'Reserve', 'Count', 'Scrap', 'History', 'Docs'];
 const H = () => document.documentElement;
 const rem = () => parseFloat(getComputedStyle(H()).fontSize);
 
-interface Tween { p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3; s: number; ms: number; done?: () => void }
+interface Tween { p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3; via?: THREE.Vector3; s: number; ms: number; done?: () => void }
 
 /** Base date of the sample data; the timeline offsets from it. */
 const TODAY_UTC = Date.UTC(2026, 9, 18);
@@ -108,10 +108,10 @@ class ThreeEngine {
     return Math.max(1, Math.min(2.4, Math.max(w / Math.max(200, sa.r - sa.l), h / Math.max(200, sa.b - sa.t)) * .92));
   }
 
-  private fly(pos: THREE.Vector3Tuple | THREE.Vector3, target: THREE.Vector3Tuple | THREE.Vector3, ms = 1100, delay = 0) {
+  private fly(pos: THREE.Vector3Tuple | THREE.Vector3, target: THREE.Vector3Tuple | THREE.Vector3, ms = 1100, delay = 0, via?: THREE.Vector3) {
     const v = (x: THREE.Vector3Tuple | THREE.Vector3) => (x instanceof THREE.Vector3 ? x.clone() : new THREE.Vector3(...x));
     return new Promise<void>(done => {
-      this.tween = { p0: this.cam.position.clone(), t0: this.ctl!.target.clone(), p1: v(pos), t1: v(target), s: performance.now() + delay, ms, done };
+      this.tween = { p0: this.cam.position.clone(), t0: this.ctl!.target.clone(), p1: v(pos), t1: v(target), via, s: performance.now() + delay, ms, done };
     });
   }
 
@@ -134,7 +134,11 @@ class ThreeEngine {
     if (tw && now >= tw.s) {
       let k = Math.min(1, (now - tw.s) / tw.ms);
       k = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-      this.cam.position.lerpVectors(tw.p0, tw.p1, k);
+      if (tw.via) {
+        // Quadratic Bézier through `via`, so long moves swing round instead of cutting through.
+        const a = (1 - k) * (1 - k), b = 2 * (1 - k) * k, c = k * k;
+        this.cam.position.set(a * tw.p0.x + b * tw.via.x + c * tw.p1.x, a * tw.p0.y + b * tw.via.y + c * tw.p1.y, a * tw.p0.z + b * tw.via.z + c * tw.p1.z);
+      } else this.cam.position.lerpVectors(tw.p0, tw.p1, k);
       this.ctl.target.lerpVectors(tw.t0, tw.t1, k);
       if (k >= 1) { this.tween = null; tw.done?.(); }
     }
@@ -223,7 +227,9 @@ class ThreeEngine {
     if (now - this.hoverAt < 60) return;
     this.hoverAt = now;
     const hit = this.facilityAt(e);
-    setHovered(hit ? hit.object.userData.k : null);
+    const ud = hit?.object.userData;
+    const ktec = ud && this.site?.meta[ud.k]?.f.levels?.includes(ud.floor) ? ud.floor as number : null;
+    setHovered(ud ? ud.k : null, ktec);
     this.R!.domElement.style.cursor = hit ? 'pointer' : '';
   }
 
@@ -242,12 +248,58 @@ class ThreeEngine {
     }
     const hit = this.facilityAt(e);
     if (!hit) return;
-    const { k, floor } = hit.object.userData;
+    const { k, floor, store } = hit.object.userData;
     const main = this.site!.meta.main;
+    if (store) { go('store'); return; }
+    // Modelled towers: tapping a KTEC storey opens it; anything else just selects the tower.
+    const fi = main?.f.levels?.indexOf(floor) ?? -1;
+    if (k === 'main' && fi >= 0 && s.floor !== fi) { enterFloor(fi); return; }
+    if (k === 'main' && main?.tower) { selectBuilding(k); if (s.floor === null) this.focus(k); return; }
     // Tapping the peeled-open store floor of the selected primary building drills into the store.
     if (k === 'main' && floor === main?.f.storeFloor && s.bld === 'main' && s.peel) { go('store'); return; }
     selectBuilding(k);
     this.focus(k);
+  }
+
+  /**
+   * Camera for the opened floor: a dolls-house view looking down into the floor from the side the
+   * user is already on, or (walking) eye level just inside the glass, facing across the floor.
+   */
+  showFloor() {
+    const s = getState(), site = this.site, ctl = this.ctl, m = site?.meta.main;
+    if (!site || !ctl || !m?.tower || !m.f.levels || s.screen !== 'site') return;
+    setState({ tour: false });
+    if (s.floor === null) {
+      ctl.minDistance = 25; ctl.maxPolarAngle = 1.45;
+      this.focus('main');
+      return;
+    }
+    const fr = site.levelFrame(m.f.levels[s.floor]);
+    if (!fr) return;
+    const dirH = this.cam.position.clone().sub(fr.c).setY(0);
+    if (dirH.lengthSq() < 1) dirH.set(.6, 0, 1);
+    dirH.normalize();
+    if (s.walk) {
+      // Stand at one end of the floor beside the core, on the camera's side, looking down its length.
+      const xs = fr.plan.map(p => p[0]), zs = fr.plan.map(p => p[1]);
+      const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+      const longX = x1 - x0 >= z1 - z0, side = Math.sign(longX ? dirH.z : dirH.x) || 1;
+      const from = (longX ? dirH.x : dirH.z) > 0 ? 1 : -1;
+      const eye = longX ? new THREE.Vector3(fr.c.x + from * ((x1 - x0) / 2 - 7), fr.c.y + 1.65, fr.c.z + side * 8.5)
+        : new THREE.Vector3(fr.c.x + side * 8.5, fr.c.y + 1.65, fr.c.z + from * ((z1 - z0) / 2 - 7));
+      const look = longX ? new THREE.Vector3(fr.c.x - from * (x1 - x0) / 4, fr.c.y + 1.3, eye.z) : new THREE.Vector3(eye.x, fr.c.y + 1.3, fr.c.z - from * (z1 - z0) / 4);
+      ctl.minDistance = .5; ctl.maxPolarAngle = 1.75;
+      const via = this.cam.position.clone().lerp(eye, .5).setY(Math.max(this.cam.position.y, eye.y) + 6);
+      this.fly(eye, look, 1900, 0, via);
+      return;
+    }
+    ctl.minDistance = 8; ctl.maxPolarAngle = 1.45;
+    const target = fr.c.clone().setY(fr.c.y + 1);
+    const dist = fr.r * 1.7 * this.fitK(), el = THREE.MathUtils.degToRad(42);
+    const pos = target.clone().addScaledVector(dirH, Math.cos(el) * dist).setY(target.y + Math.sin(el) * dist);
+    const via = this.cam.position.clone().lerp(pos, .5);
+    via.y = Math.max(via.y, pos.y) + dist * .15;
+    this.fly(pos, target, 1700, 0, via);
   }
 
   /** Fly to frame one facility, keeping the current viewing direction. */
@@ -275,6 +327,38 @@ class ThreeEngine {
     const lbl = () => { const s = getState(); return isOn(s, s.screen === 'movements' ? 'movements' : 'site', 'lbl'); };
     Object.values(res.meta).forEach(m => {
       const f = m.f;
+      if (m.tower && f.levels && f.floors) {
+        // Only the KTEC storeys are offered, as a lift-style floor panel beside the tower on the
+        // side facing the camera; hovering a button lights that floor on the model.
+        const tw = m.tower, lvls = f.levels;
+        const mid = (tw.z[lvls[0]] + tw.z[lvls[lvls.length - 1] + 1]) / 2;
+        const pos = () => {
+          const d = this.cam.position.clone().sub(m.c);
+          let best = tw.plan[0], bd = -Infinity;
+          for (const p of tw.plan) { const v = (p[0] - m.c.x) * d.x + (p[1] - m.c.z) * d.z; if (v > bd) { bd = v; best = p; } }
+          return new THREE.Vector3(best[0], mid, best[1]);
+        };
+        const btns = lvls.map((_, i) => i).reverse().map(i => `<button data-i="${i}" aria-label="Enter ${f.floors![i][0]}"><b>${f.floors![i][0].replace(/\D+/g, '')}</b></button>`).join('');
+        const panel = L.add(pos, `<span class="eb">${f.n}</span><div class="keys">${btns}</div><span>Choose a floor</span>`, {
+          cls: 'lift', tag: 'div', ax: 0, ay: -.5, dx: 22, pri: 4,
+          show: () => { const s = getState(); return s.screen === 'site' && s.floor === null && lbl(); },
+        });
+        panel.querySelectorAll<HTMLButtonElement>('button').forEach(b => {
+          const i = +b.dataset.i!;
+          b.addEventListener('click', () => enterFloor(i));
+          b.addEventListener('pointerenter', () => setHovered('main', lvls[i]));
+          b.addEventListener('pointerleave', () => setHovered(null));
+        });
+        const st = f.storeFloor !== undefined ? tw.interiors[f.levels[f.storeFloor]] : undefined;
+        if (st?.store) {
+          const lv = f.levels[f.storeFloor!];
+          L.add(st.store.clone().setY(tw.z[lv] + 3.2), '<b>Electronics store</b><span>Open store twin ›</span>', {
+            cls: 'on', onClick: () => go('store'), pri: 5,
+            show: () => { const s = getState(); return s.screen === 'site' && s.floor === f.storeFloor && !s.walk; },
+          });
+        }
+        return;
+      }
       if (m.slabs && f.floors) {
         f.floors.forEach(([n, space], i) => {
           const slab = m.slabs![i], isStore = i === f.storeFloor;
@@ -381,6 +465,17 @@ class ThreeEngine {
       ctl.minDistance = 25; ctl.maxDistance = 5000; ctl.maxPolarAngle = 1.45;
       const fromAbove = this.prev !== 'site' && this.prev !== 'movements';
       if (opts.handoff || fromAbove) { this.cam.position.set(0, this.handoffHeight(), .01); ctl.target.set(0, 0, 0); }
+      // Back from the store twin (or re-entering) with a floor open: return to that floor.
+      const mm = res.meta.main, fl = getState().floor;
+      if (!opts.handoff && (this.prev === 'store' || this.prev === 'site') && fl !== null && mm?.tower && mm.f.levels) {
+        if (this.prev === 'store') {
+          const fr = res.levelFrame(mm.f.levels[fl])!;
+          ctl.target.copy(fr.c);
+          this.cam.position.copy(fr.c).add(new THREE.Vector3(fr.r * .9, fr.r * 1.6, fr.r * 1.3));
+        }
+        this.showFloor(); this.resize(); this.prev = 'site';
+        return;
+      }
       const c = res.center, k = this.fitK(), r = res.radius;
       // Oblique view from the south-east, framing the KONE facilities.
       const target = new THREE.Vector3(c.x * .6, 0, c.z * .6);

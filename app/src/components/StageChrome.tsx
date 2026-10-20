@@ -6,24 +6,32 @@ import { primary, SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { ScreenId } from '../data/types';
 import {
-  cancelMove, go, goLive, resetView, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, toggleRail, toggleTour, zoom,
+  cancelMove, exitFloor, go, goLive, resetView, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, toggleRail, toggleTour, zoom,
 } from '../state/actions';
-import { isOn, THREE_SCREENS, useApp } from '../state/store';
+import { isOn, setState, THREE_SCREENS, useApp } from '../state/store';
 
 export function Crumbs({ hidden }: { hidden: boolean }) {
   const s = useApp(x => x);
   const site = SITE_BY_ID[s.site], main = primary(site);
   const india: [string, ScreenId] = ['India', 'network'];
   const bld = s.bld ? site.facilities.find(f => f.k === s.bld) : null;
+  const fl = main.levels && s.floor !== null ? main.floors![s.floor][0] : null;
   const storeFloor = main.floors?.[main.storeFloor ?? 0]?.[0].split(' · ')[0] ?? 'Store floor';
   const cr: [string, ScreenId][] = ({
     network: [india],
     routes: [india, ['Route plan · Chennai → Pune', 'routes']],
     shipments: [india, ['Shipments · 142 live', 'shipments']],
-    site: [india, [site.name, 'site'], ...(bld ? [[bld.n, 'site'] as [string, ScreenId]] : [])],
+    site: fl ? [india, [site.name, 'site'], [main.n.split(' · ')[0], 'site'], [fl, 'site']]
+      : [india, [site.name, 'site'], ...(bld && !main.levels ? [[bld.n, 'site'] as [string, ScreenId]] : [])],
     movements: [india, [site.name, 'site'], ['Movements and scrap', 'movements']],
-    store: [india, [site.short, 'site'], [main.n, 'site'], [storeFloor, 'site'], ['Electronics store', 'store'], ['Rack ' + 'ABCD'[s.bin.r], 'store'], ['Bin ' + binId(s.bin), 'store']],
+    store: [india, [site.short, 'site'], [main.n.split(' · ')[0], 'site'], [storeFloor, 'site'], ['Electronics store', 'store'], ['Rack ' + 'ABCD'[s.bin.r], 'store'], ['Bin ' + binId(s.bin), 'store']],
   } as Partial<Record<ScreenId, [string, ScreenId][]>>)[s.screen] ?? [];
+  // Within the site, the site and tower crumbs step back out of an opened floor.
+  const crumb = (i: number, target: ScreenId) => {
+    if (s.screen === 'site' && target === 'site' && i >= 1) { exitFloor(); return; }
+    if (s.screen === 'store' && target === 'site') setState({ floor: i === 3 && main.levels ? main.storeFloor ?? null : null, walk: false });
+    go(target);
+  };
   return (
     <div className={`crumbs${hidden ? ' hidden' : ''}`} id="crumbs">
       <div className="in" id="crumbsIn">
@@ -32,7 +40,7 @@ export function Crumbs({ hidden }: { hidden: boolean }) {
           return (
             <Fragment key={i}>
               {i > 0 && <span className="sep">›</span>}
-              <button className={cur ? 'cur' : ''} onClick={cur ? undefined : () => go(target)} aria-current={cur ? 'page' : undefined}>{label}</button>
+              <button className={cur ? 'cur' : ''} onClick={cur ? undefined : () => crumb(i, target)} aria-current={cur ? 'page' : undefined}>{label}</button>
             </Fragment>
           );
         })}
@@ -67,7 +75,7 @@ export function Rail({ hidden }: { hidden: boolean }) {
               <div><i style={{ background: '#C8312B' }} />Exception</div>
             </div>
           </>}
-          {scr === 'site' && <>
+          {scr === 'site' && !primary(SITE_BY_ID[s.site]).levels && <>
             <div className="sec"><span className="eb ink">{primary(SITE_BY_ID[s.site]).n}</span></div>
             <button className={`tgl ${s.peel ? 'on' : ''}`} onClick={togglePeel} aria-pressed={s.peel}><span>Peel floors open</span><span className="sw" /></button>
           </>}
