@@ -54,3 +54,18 @@ cross-fades away and the camera tilts down into the site. Leaving reverses this.
 - `src/three/` — site scene from OSM (`site.ts`), sun and sky (`sky.ts`), procedural facades (`textures.ts`), Blender models (`models.ts`), the store (`store3d.ts`), the renderer and handoff (`engine.ts`) and DOM labels (`labels.ts`).
 - `src/services/` — OSM data (`osm.ts`) and site photos (`photos.ts`).
 - `public/models/` — glTF assets built in Blender by `../blender/build_assets.py`.
+
+## Data
+
+All data goes through `src/db`:
+
+- `schema.ts` holds the document shapes (users, parts, locations, stock lots, movements, scrap
+  cases, shipments, carriers, approval rules, alerts and the audit log). The server shares it.
+- `index.ts` exports `db`, which has `find`, `get`, `insert`, `update`, `remove` and `reset`.
+  Queries use MongoDB syntax. Every write is stamped and audited, and notifies subscribers.
+- `hooks.ts` has `useQuery(coll, filter, opts)` and `useDoc(coll, id)`. Both re-run when their
+  collection changes.
+- Without `VITE_API_URL` (GitHub Pages), the **demo database** keeps the data in this browser,
+  seeded from `seed.ts`. Use Display → *Reset to the starting sample* to start over. With
+  `VITE_API_URL` set, the app uses the API in `/server` (MongoDB or Azure Cosmos DB).
+- The Role pill switches between the demo users. `npm test` runs the data-layer tests.

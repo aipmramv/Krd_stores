@@ -2,7 +2,10 @@
 import { useEffect, useRef } from 'react';
 import { SITE_BY_ID, SITES } from '../data/sites';
 import type { ScreenId } from '../data/types';
-import { closeOverlay, go, openPalette, openPhoto, selectSite, setKiosk, viewPhotoIn3D } from '../state/actions';
+import { db } from '../db';
+import { useQuery } from '../db/hooks';
+import { ROLE_LABEL } from '../db/schema';
+import { closeOverlay, go, openPalette, openPhoto, resetDemoData, selectSite, setKiosk, setUser, viewPhotoIn3D } from '../state/actions';
 import { useApp } from '../state/store';
 
 interface PalItem { title: string; sub: string; hint: string; run: () => void }
@@ -61,6 +64,24 @@ function DisplayMenu({ top, right }: { top: number; right: number }) {
       <button role="menuitemradio" aria-checked={kiosk} onClick={() => setKiosk(true)}><span>Kiosk touch · 32–55 in screens</span>{kiosk && <b>On</b>}</button>
       <span className="eb">Preview</span>
       <button onClick={() => { closeOverlay(); window.open('layouts.html', '_blank'); }}><span>All screen sizes side by side</span><span>↗</span></button>
+      {db.kind === 'demo' && <>
+        <span className="eb">Demo data</span>
+        <button onClick={() => void resetDemoData()}><span>Reset to the starting sample</span><span>↺</span></button>
+      </>}
+    </div>
+  );
+}
+
+function UserMenu({ top, right }: { top: number; right: number }) {
+  const me = useApp(s => s.user), users = useQuery('users', {}, { sort: { name: 1 } }).data;
+  return (
+    <div className="menu" style={{ top, right }} role="menu">
+      <span className="eb">{db.kind === 'demo' ? 'Demo · act as' : 'Signed in'}</span>
+      {users.map(u => (
+        <button key={u._id} role="menuitemradio" aria-checked={u._id === me} onClick={() => setUser(u._id)} disabled={db.kind !== 'demo' && u._id !== me}>
+          <span>{u.name} · {ROLE_LABEL[u.role]}</span>{u._id === me && <b>On</b>}
+        </button>
+      ))}
     </div>
   );
 }
@@ -90,9 +111,9 @@ export function Overlay() {
   const o = useApp(s => s.overlay);
   if (!o) return null;
   return (
-    <div className={`overlay${o.kind === 'photo' ? ' dark' : ''}`} style={o.kind === 'display' ? { background: 'transparent' } : undefined}
+    <div className={`overlay${o.kind === 'photo' ? ' dark' : ''}`} style={o.kind === 'display' || o.kind === 'user' ? { background: 'transparent' } : undefined}
       onClick={e => { if (e.target === e.currentTarget) closeOverlay(); }}>
-      {o.kind === 'palette' ? <Palette q={o.q} /> : o.kind === 'display' ? <DisplayMenu top={o.top} right={o.right} /> : <PhotoViewer site={o.site} i={o.i} />}
+      {o.kind === 'palette' ? <Palette q={o.q} /> : o.kind === 'display' ? <DisplayMenu top={o.top} right={o.right} /> : o.kind === 'user' ? <UserMenu top={o.top} right={o.right} /> : <PhotoViewer site={o.site} i={o.i} />}
     </div>
   );
 }

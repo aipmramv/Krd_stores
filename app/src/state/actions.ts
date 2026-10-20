@@ -4,7 +4,8 @@ import type { Bin, ColorMode, ScreenId } from '../data/types';
 import { mapEngine } from '../map/mapEngine';
 import { loadPhotos } from '../services/photos';
 import { threeEngine } from '../three/engine';
-import { getState, MAP_SCREENS, setState, stageFor } from './store';
+import { db } from '../db';
+import { getState, MAP_SCREENS, setState, stageFor, USER_KEY } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
 const isSiteScreen = (s: ScreenId) => s === 'site' || s === 'movements';
@@ -121,6 +122,16 @@ export const setTimeOfDay = (tod: number | null) => setState({ tod });
 export const toggleTour = () => setState(s => ({ tour: !s.tour }));
 export const setKiosk = (on: boolean) => { setState({ kiosk: on, overlay: null }); requestAnimationFrame(() => threeEngine.refreshRadial()); };
 export const openPalette = (q = '') => setState({ overlay: { kind: 'palette', q } });
+export const openUserMenu = (r: DOMRect) => setState({ overlay: { kind: 'user', top: r.bottom + 6, right: innerWidth - r.right } });
+export function setUser(id: string) {
+  setState({ user: id, overlay: null });
+  try { localStorage.setItem(USER_KEY, id); } catch { /* private mode: not remembered */ }
+}
+export async function resetDemoData() {
+  setState({ overlay: null });
+  await db.reset();
+  toast('Demo data reset to the starting sample');
+}
 export const openDisplayMenu = (r: DOMRect) => setState({ overlay: { kind: 'display', top: r.bottom + 6, right: innerWidth - r.right } });
 export const openPhoto = (site: string, i: number) => setState({ overlay: { kind: 'photo', site, i } });
 export const closeOverlay = () => setState({ overlay: null });

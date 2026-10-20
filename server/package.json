@@ -1,0 +1,23 @@
+{
+  "name": "ktec-materials-twin-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "REST API for the KTEC Materials Twin over MongoDB or Azure Cosmos DB for MongoDB",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "seed": "tsx src/seed.ts",
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "mongodb": "^6.10.0",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0"
+  }
+}

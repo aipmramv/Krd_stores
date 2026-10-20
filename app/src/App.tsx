@@ -8,9 +8,12 @@ import { ModuleTabs, TopBar } from './components/TopBar';
 import { MODULES } from './data/sample';
 import { mapEngine } from './map/mapEngine';
 import { escape, go, openPalette } from './state/actions';
+import { setActor } from './db';
 import { getState, useApp } from './state/store';
 import { threeEngine } from './three/engine';
 import { useLayout } from './useLayout';
+
+setActor(() => getState().user);
 
 function useKeyboard() {
   useEffect(() => {

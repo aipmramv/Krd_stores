@@ -2,3 +2,4 @@
 # Blender backups and Python caches
 *.blend1
 __pycache__/
+node_modules/

@@ -32,7 +32,10 @@ export const FEATURED_BIN: Bin = { r: 3, i: 4, k: 3 };
 /** Bin C-10-04 carries the count-variance exception. */
 export const EXCEPTION_BIN: Bin = { r: 2, i: 9, k: 3 };
 
+/** Parts that live in electronics-store bins: no hazmat, nothing heavy, long or yard-stored. */
+export const BIN_PARTS = PARTS.filter(p => /^[A-D]-\d\d-\d\d/.test(p[9]) && !/UN\d|Flammable/.test(p[5]));
+
 export function partInBin(b: Bin): { part: Part; featured: boolean } {
   const featured = binId(b) === binId(FEATURED_BIN);
-  return { part: featured ? PARTS[0] : PARTS[Math.floor(rnd(b.r, b.i, b.k) * 11) + 1], featured };
+  return { part: featured ? PARTS[0] : BIN_PARTS[Math.floor(rnd(b.r, b.i, b.k) * BIN_PARTS.length)], featured };
 }

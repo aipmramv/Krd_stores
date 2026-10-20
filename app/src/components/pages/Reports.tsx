@@ -1,4 +1,24 @@
-import { PARTS, STATUS_DOT } from '../../data/sample';
+import { STATUS_DOT } from '../../data/sample';
+import { SITE_BY_ID } from '../../data/sites';
+import type { PartStatus } from '../../data/types';
+import { db } from '../../db';
+import { useQuery } from '../../db/hooks';
+import type { Part, StockLot } from '../../db/schema';
+
+/** A part with its stock summed over lots: the largest lot gives the location and status. */
+interface PartRow { p: Part; onHand: number; reserved: number; where: string; status: PartStatus }
+function rows(parts: Part[], lots: StockLot[]): PartRow[] {
+  return parts.map(p => {
+    const mine = lots.filter(l => l.partNo === p.partNo);
+    const top = mine.reduce<StockLot | null>((m, l) => (!m || l.qty > m.qty ? l : m), null);
+    const flagged = mine.find(l => l.status !== 'Available');
+    return {
+      p, onHand: mine.reduce((n, l) => n + l.qty, 0), reserved: mine.reduce((n, l) => n + l.reserved, 0),
+      where: top ? `${top.locationId.split(':')[1]} · ${SITE_BY_ID[top.site]?.short ?? top.site}${mine.length > 1 ? ` +${mine.length - 1}` : ''}` : '—',
+      status: flagged?.status ?? (top ? 'Available' : 'Planned'),
+    };
+  });
+}
 
 const NAV: [string, string[]][] = [
   ['Masters', ['Sites and locations', 'Parts', 'Carriers', 'Movement purposes', 'Area templates', 'Approval rules', 'Users and roles']],
@@ -11,6 +31,8 @@ const EDITING = 2;
 const muted = { color: '#4A4D55' };
 
 export function Reports({ hidden }: { hidden: boolean }) {
+  const parts = useQuery('parts', {}, { sort: { partNo: 1 } }).data, lots = useQuery('stockLots').data;
+  const list = rows(parts, lots);
   return (
     <section className={`page${hidden ? ' hidden' : ''}`}>
       <div className="rep">
@@ -24,7 +46,7 @@ export function Reports({ hidden }: { hidden: boolean }) {
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
             <div>
               <h1>Parts master</h1>
-              <div style={{ fontSize: '.8125rem', color: '#4A4D55', marginTop: '.25rem' }}>2,418 parts · synced with SAP S/4HANA and PLM 6 min ago</div>
+              <div style={{ fontSize: '.8125rem', color: '#4A4D55', marginTop: '.25rem' }}>{parts.length} parts · {lots.length} stock lots · {db.kind === 'demo' ? 'demo data in this browser' : 'live database'}</div>
             </div>
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
               <button className="btn">Import Excel/CSV</button><button className="btn">Export</button><button className="btn primary">New part</button>
@@ -44,15 +66,15 @@ export function Reports({ hidden }: { hidden: boolean }) {
                 <th className="num">On hand</th><th className="num">Reserved</th><th>Location</th><th>Owner project</th><th>Status</th>
               </tr></thead>
               <tbody>
-                {PARTS.map((p, i) => (
-                  <tr key={p[0]} className={SELECTED.includes(i) ? 'sel' : ''}>
+                {list.map(({ p, onHand, reserved, where, status }, i) => (
+                  <tr key={p._id} className={SELECTED.includes(i) ? 'sel' : ''}>
                     <td><span className="cb" /></td>
-                    <td style={{ color: '#1450F5', fontWeight: 600 }}>{p[0]}</td>
-                    <td>{p[1]}</td><td>{p[2]}</td>
-                    <td style={muted}>{p[3]}</td><td style={muted}>{p[4]}</td><td style={muted}>{p[5]}</td><td style={muted}>{p[6]}</td>
-                    <td className="num">{i === EDITING ? <span className="edit">4</span> : p[7]}</td>
-                    <td className="num">{p[8]}</td><td>{p[9]}</td><td>{p[10]}</td>
-                    <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: '.375rem' }}><span className="dot" style={{ background: STATUS_DOT[p[11]] }} />{p[11]}</span></td>
+                    <td style={{ color: '#1450F5', fontWeight: 600 }}>{p.partNo}</td>
+                    <td>{p.rev}</td><td>{p.description}</td>
+                    <td style={muted}>{p.category}</td><td style={muted}>{p.uom}</td><td style={muted}>{p.hazard}</td><td style={muted}>{p.exportClass}</td>
+                    <td className="num">{i === EDITING ? <span className="edit">{onHand}</span> : onHand.toLocaleString('en-IN')}</td>
+                    <td className="num">{reserved.toLocaleString('en-IN')}</td><td>{where}</td><td>{p.project}</td>
+                    <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: '.375rem' }}><span className="dot" style={{ background: STATUS_DOT[status] }} />{status}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -60,7 +82,7 @@ export function Reports({ hidden }: { hidden: boolean }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', fontSize: '.75rem', color: '#4A4D55' }}>
             <span>Inline edit: on-hand for KM-ESC-DRV-040 changed 3 → 4 · posts as a count adjustment with audit trail</span>
-            <span>1–12 of 2,418</span>
+            <span>1–{list.length} of {list.length}</span>
           </div>
         </main>
       </div>
