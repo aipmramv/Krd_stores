@@ -8,6 +8,9 @@ on:
       imagery:
         description: 'Optional "lat,lon" to save a 3 × 3 km satellite mosaic around (Esri World Imagery, zoom 16)'
         default: ''
+      query:
+        description: 'Optional Overpass QL to run and save as query.json'
+        default: ''
 
 permissions:
   contents: write
@@ -41,7 +44,10 @@ jobs:
           curl -sf --max-time 60 -A 'KONE-Materials-Twin/1.0 (+https://github.com/aipmramv/Krd_stores)' 'https://nominatim.openstreetmap.org/search?q=Irungattukottai+Irumbedu+Road&format=json&limit=10' -o snapshot/nominatim-road.json || true
           q2='[out:json][timeout:60];way["highway"]["name"~"Irumb|Irrumb|Irung|Pennalur|Pillaipakkam",i](12.85,79.85,13.1,80.1);out center tags;'
           curl -sf --max-time 60 -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$q2" https://overpass-api.de/api/interpreter -o snapshot/roads-named.json || true
+          if [ -n "$QUERY" ]; then curl -sf --max-time 120 -A 'KONE-Materials-Twin/1.0' --data-urlencode "data=$QUERY" https://overpass-api.de/api/interpreter -o snapshot/query.json || true; fi
           ls -la snapshot
+        env:
+          QUERY: ${{ inputs.query }}
       - name: Satellite mosaic
         if: inputs.imagery != ''
         continue-on-error: true
