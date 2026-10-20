@@ -309,6 +309,9 @@ html.portrait .rep main{padding:1.25rem}
 .stepper button{width:var(--hit);min-height:var(--hit);border:1px solid #C4C7CD;border-radius:4px;background:#fff;font-size:1.125rem;cursor:pointer}
 .stepper button.all{width:auto;padding:0 .875rem;font-size:.8125rem}
 .mvlist{display:flex;flex-direction:column}
+.fld textarea{border:1px solid #C4C7CD;border-radius:4px;padding:.5rem .625rem;font:inherit;font-size:.875rem;color:#141414;resize:vertical}
+.photo-pick{display:flex;align-items:center;justify-content:center;cursor:pointer}
+.sq-img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
 .mvrow{padding:.75rem 1.25rem;border-top:1px solid #EFF1F4;display:flex;flex-direction:column;gap:.375rem}
 .mvhd{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;font-size:.8125rem}
 .mvhd small,.mvmeta{display:block;font-size:.75rem;color:#4A4D55;line-height:1.35}

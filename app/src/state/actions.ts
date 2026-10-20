@@ -6,6 +6,7 @@ import { loadPhotos } from '../services/photos';
 import { threeEngine } from '../three/engine';
 import { db } from '../db';
 import * as moves from '../services/moves';
+import * as scrap from '../services/scrap';
 import { getState, MAP_SCREENS, setState, stageFor, USER_KEY } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
@@ -143,6 +144,7 @@ export function selectBin(b: Bin) { setState({ bin: b }); }
 export function binAction(a: string) {
   const { bin } = getState(), id = binId(bin);
   if (a === 'Move') { startMove(bin); return; }
+  if (a === 'Scrap') { void db.find('stockLots', { locationId: `${getState().site}:${id}` }).then(l => newScrap(l.find(x => x.qty > x.reserved)?._id)); return; }
   const what = a === 'Scrap' ? 'scrap case started, add reason and photo'
     : a === 'Count' ? 'cycle count task sent to scanner'
     : a === 'Reserve' ? 'reserved 4 for DX Class 2027' : 'opened';
@@ -184,6 +186,29 @@ export async function confirmMove(id: string) {
   const mv = await moves.complete(id, getState().user).catch(fail);
   if (mv) toast(`${id} done · stock moved and bins updated`);
 }
+// ---------- Scrap cases ----------
+export const openScrap = (id: string) => setState({ scrapId: id, scrapNew: null });
+export const newScrap = (lotId?: string) => { setState({ scrapNew: { lotId }, scrapId: null }); threeEngine.hideRadial(); };
+export const closeScrap = () => { setState({ scrapId: null, scrapNew: null }); if (getState().screen === 'store') threeEngine.showRadial(); };
+const done = (msg: (c: { _id: string }) => string) => (c: { _id: string } | null) => { if (c) toast(msg(c)); return c; };
+export async function tagScrap(lotId: string, qty: number, photos: string[], note: string) {
+  const c = await scrap.tag({ lotId, qty, photos, note }, getState().user).catch(fail);
+  if (!c) return;
+  setState({ scrapNew: null, scrapId: c._id });
+  if (getState().screen !== 'movements') go('movements');
+  toast(`${c._id} tagged · ${qty} held · add the reason to send it for approval`);
+}
+export const scrapReason = (id: string, reason: string, detail: string) => scrap.submitReason(id, reason, detail, getState().user).catch(fail).then(done(c => `${c._id} sent for approval`));
+export const scrapDecide = (id: string, d: 'approved' | 'rejected', note: string) => scrap.decide(id, d, getState().user, note).catch(fail)
+  .then(done(c => `${c._id} ${d === 'rejected' ? 'rejected · units released' : 'approved'}`));
+export const scrapMove = (id: string) => scrap.moveToYard(id, getState().user).catch(fail).then(done(c => `${c._id} · units in the scrap yard`));
+export const scrapDispose = (id: string, disposal: string, vendor: string, pickupDate: string) => scrap.dispose(id, { disposal, vendor, pickupDate }, getState().user).catch(fail)
+  .then(done(c => `${c._id} · disposal recorded · units left stock`));
+export const scrapWriteOff = (id: string, certificate: string, certificateFile?: string) => scrap.writeOff(id, { certificate, certificateFile }, getState().user).catch(fail)
+  .then(done(c => `${c._id} written off`));
+export const scrapCancel = (id: string) => scrap.cancelCase(id, getState().user).catch(fail).then(done(c => `${c._id} withdrawn · units released`));
+export const scrapPhotos = (id: string, photos: string[]) => scrap.addPhotos(id, photos, getState().user).catch(fail).then(done(() => 'Photo added'));
+
 export async function cancelMoveRequest(id: string) {
   const mv = await moves.cancel(id, getState().user).catch(fail);
   if (mv) toast(`${id} cancelled`);

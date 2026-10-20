@@ -21,6 +21,8 @@ const AREAS: [string, Zone][] = [['Hazmat H-01', 'Hazmat'], ['Hazmat H-02', 'Haz
   ['Lab L-03', 'Lab'], ['Test tower', 'Test'], ['Scrap yard', 'Yard'], ['Yard Y-02', 'Yard']];
 
 const SITE_OF: Record<string, string> = { Chennai: 'ktec', Pune: 'pnq' };
+/** Areas named in the sample that are at the ISU factory rather than KTEC. */
+const AREA_SITE: Record<string, string> = { 'Test tower': 'isu', 'Scrap yard': 'isu', 'Heavy L0': 'isu' };
 
 export function seed(): { [C in Coll]: Collections[C][] } {
   const users: User[] = [
@@ -60,9 +62,18 @@ export function seed(): { [C in Coll]: Collections[C][] } {
   PARTS.forEach(([partNo, , , , , , , onHand, reserved, where, project, status]) => {
     const [code, city] = where.split(' · ');
     if (/^[A-D]-\d\d-\d\d$/.test(code)) return;
-    const site = SITE_OF[city] ?? 'ktec';
+    const site = AREA_SITE[code] ?? SITE_OF[city] ?? 'ktec';
     stockLots.push(stamp({ _id: `${site}:${code}:${partNo}`, site, partNo, locationId: `${site}:${code}`, lot: `26-AREA-${partNo.slice(3, 6)}`, qty: onHand, reserved, status, project, receivedAt: days(-40) }));
   });
+
+  // The count-variance bin holds the 40 IoT gateway boards the system expects.
+  const exc = stockLots.find(l => l._id === 'ktec:C-10-04:L1');
+  if (exc) Object.assign(exc, { partNo: 'KM-PCB-IOT-022', qty: 40, reserved: 0, status: 'Available', project: '24/7 Connected' });
+  // Units tagged on open scrap cases are held (reserved) where they are.
+  const brakes = stockLots.find(l => l.partNo === 'KM-SFT-BRK-090')!;
+  Object.assign(brakes, { reserved: 6, status: 'Scrap pending' });
+  const boards = stockLots.find(l => l.site === 'ktec' && l.partNo === 'KM-PCB-IOT-022' && l.qty >= 12 && l._id !== 'ktec:C-10-04:L1' && !l.reserved)!;
+  boards.reserved = 12;
 
   const movements: Movement[] = [
     stamp({ _id: 'MR-26-1180', site: 'ktec', type: 'putaway', partNo: 'KM-DX-ACT-220', qty: 20, to: 'ktec:D-05-04', ref: 'PO 4500182', reason: 'Planned inbound · 21 Oct', status: 'requested', requestedBy: 'mk', approvals: [] }),
@@ -72,9 +83,11 @@ export function seed(): { [C in Coll]: Collections[C][] } {
   ];
 
   const scrapCases: ScrapCase[] = [
-    stamp({ _id: 'SC-2026-0418', site: 'isu', partNo: 'KM-SFT-BRK-090', qty: 6, value: 428000, reason: 'Destructive test · not reusable', detail: 'Consumed in test campaign TC-114 drop test', step: 'approval', photos: [], owner: 'pr', disposal: 'Recycle · authorised metals vendor',
+    stamp({ _id: 'SC-2026-0418', site: 'isu', partNo: 'KM-SFT-BRK-090', qty: 6, value: 428000, reason: 'Destructive test · not reusable', detail: 'Consumed in test campaign TC-114 drop test', step: 'approval', photos: [], owner: 'pr', lotId: brakes._id,
+      history: [{ at: days(-2), user: 'pr', step: 'tag', note: 'Tagged 6 after TC-114' }, { at: days(-1), user: 'pr', step: 'reason', note: 'Destructive test · sent for approval' }],
       approvals: [{ role: 'engineer', user: 'pr', decision: 'approved', at: days(-1) }, { role: 'ehs', decision: 'pending' }, { role: 'finance', decision: 'pending' }] }),
-    stamp({ _id: 'SC-2026-0421', site: 'ktec', partNo: 'KM-PCB-IOT-022', qty: 12, value: 98400, reason: 'E-waste · failed burn-in', detail: 'Boards failed 72 h burn-in on Floor 3 lab', step: 'tag', photos: [], owner: 'pr', approvals: [] }),
+    stamp({ _id: 'SC-2026-0421', site: 'ktec', partNo: 'KM-PCB-IOT-022', qty: 12, value: 98400, reason: 'E-waste · failed burn-in', detail: 'Boards failed 72 h burn-in on Floor 3 lab', step: 'reason', photos: [], owner: 'pr', approvals: [], lotId: boards._id,
+      history: [{ at: days(0), user: 'pr', step: 'tag', note: `Tagged 12 in ${boards.locationId.split(':')[1]}` }] }),
   ];
 
   const MS = ['Booked', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'];

@@ -46,10 +46,16 @@ export interface Movement extends Doc {
 }
 
 export type ScrapStep = 'tag' | 'reason' | 'approval' | 'move' | 'dispose' | 'writeoff' | 'closed';
+export interface CaseEvent { at: string; user: string; step: ScrapStep; note: string }
 export interface ScrapCase extends Doc {
   site: string; partNo: string; qty: number; value: number; reason: string; detail: string;
   step: ScrapStep; photos: string[]; approvals: Approval[];
-  disposal?: string; certificate?: string; owner: string;
+  /** The stock lot the units come from, and the scrap-yard lot once moved. */
+  lotId?: string; yardLotId?: string;
+  disposal?: string; vendor?: string; pickupDate?: string;
+  certificate?: string; certificateFile?: string; writeOffRef?: string;
+  outcome?: 'written-off' | 'rejected' | 'cancelled';
+  owner: string; history?: CaseEvent[];
 }
 
 export interface Milestone { label: string; at?: string; done: boolean }

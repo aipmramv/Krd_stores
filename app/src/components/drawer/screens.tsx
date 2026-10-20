@@ -5,7 +5,8 @@ import { loadPhotos } from '../../services/photos';
 import { binId, rnd } from '../../data/storeModel';
 import { useDoc, useQuery } from '../../db/hooks';
 import { MoveForm, MoveList } from './moves';
-import { binAction, enterFloor, exitFloor, focusBuilding, go, openPhoto, selectRoute, selectShip, selectSite, startMove, toast, toggleWalk } from '../../state/actions';
+import { ScrapCaseView, ScrapList, ScrapNew } from './scrap';
+import { binAction, enterFloor, exitFloor, focusBuilding, go, newScrap, openPhoto, selectRoute, selectShip, selectSite, startMove, toast, toggleWalk } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
 
@@ -261,12 +262,13 @@ export function SiteDrawer() {
 }
 
 export function StoreDrawer() {
-  const bin = useApp(s => s.bin), site = useApp(s => s.site), draft = useApp(s => s.moveDraft), id = binId(bin);
+  const bin = useApp(s => s.bin), site = useApp(s => s.site), draft = useApp(s => s.moveDraft), scrapNew = useApp(s => s.scrapNew), id = binId(bin);
   const loc = `${site}:${id}`;
   const lots = useQuery('stockLots', { locationId: loc }).data, parts = useQuery('parts').data;
   const location = useDoc('locations', loc).data;
   const inbound = useQuery('movements', { to: loc, status: { $in: ['requested', 'approved'] } }).data;
   const last = useQuery('movements', { $or: [{ from: loc }, { to: loc }], status: 'done' }, { sort: { updatedAt: -1 }, limit: 1 }).data[0];
+  if (scrapNew) return <ScrapNew />;
   if (draft) return <DrawerFrame title="Move request"><MoveForm /></DrawerFrame>;
   const main = lots[0], part = parts.find(p => p._id === main?.partNo);
   const onHand = lots.reduce((n, l) => n + l.qty, 0), reserved = lots.reduce((n, l) => n + l.reserved, 0);
@@ -317,41 +319,27 @@ export function StoreDrawer() {
 }
 
 export function MovementsDrawer() {
-  const site = SITE_BY_ID[useApp(s => s.site)];
+  const site = SITE_BY_ID[useApp(s => s.site)], scrapId = useApp(s => s.scrapId), scrapNew = useApp(s => s.scrapNew);
   const name = (k: string) => site.facilities.find(f => f.k === k)?.n ?? k;
-  const steps = ['Tag', 'Reason', 'Approval', 'Move', 'Dispose', 'Write-off'];
+  if (scrapNew) return <ScrapNew />;
+  if (scrapId) return <ScrapCaseView id={scrapId} />;
   return (
     <DrawerFrame title="Movements and scrap" foot={<>
-      <button className="btn primary" onClick={() => toast('Approved · forwarded to finance controller')}>Approve</button>
-      <button className="btn" onClick={() => toast('Rejected · returned to lab owner')}>Reject</button>
+      <button className="btn primary" onClick={() => newScrap()}>New scrap case</button>
       <button className="btn" onClick={() => { go('store'); toast('Press and hold a bin, then drag it to the destination'); }}>Request move</button>
     </>}>
-      <div className="st"><span className="eb ink">{`Move requests · ${site.short}`}</span></div>
+      <div className="st"><span className="eb ink">{`Scrap cases · ${site.short}`}</span></div>
+      <ScrapList site={site.id} />
+      <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">{`Move requests · ${site.short}`}</span></div>
       <MoveList filter={{ site: site.id }} empty="No move requests at this site yet. Press and hold a bin in the store twin to start one." />
-      <div className="dh" style={{ borderTop: '1px solid #DEE0E4' }}>
-        <span className="eb">Scrap case · awaiting your approval</span><h2>SC-2026-0418</h2>
-        <p>6 × KM-SFT-BRK-090 safety brake · consumed in test campaign TC-114 drop test</p>
-      </div>
-      <div className="steps">{steps.map((x, i) => <div key={x} className={i < 2 ? 'done' : i === 2 ? 'cur' : ''}><i />{x}</div>)}</div>
-      <div className="kv">
-        <div><span>Reason</span><span>Destructive test · not reusable</span></div>
-        <div><span>Write-off value</span><b>₹4,28,000</b></div>
-        <div><span>Disposal</span><span>Recycle · authorised metals vendor</span></div>
-      </div>
-      <div className="grid3" style={{ paddingTop: 0 }}>{[1, 2, 3].map(n => <div key={n} className="thumb" style={{ aspectRatio: '1' }}>Photo {n}</div>)}</div>
-      <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">Approval chain · over ₹2,00,000</span></div>
-      <div className="rows">
-        <div><span>Lab owner · P. Raman</span><span style={{ color: '#1B7F4E' }}>Approved</span></div>
-        <div className="sel"><b>EHS · you</b><b>Pending</b></div>
-        <div><span>Finance controller</span><span style={{ color: '#767A82' }}>Waiting</span></div>
-      </div>
-      <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">{`Moves today · ${site.short}`}</span></div>
-      <div className="rows">
-        {site.flows.map(([from, to, col, label]) => (
-          <div key={label}><span><b>{name(from)} → {name(to)}</b><small>{label}</small></span><span className="dot" style={{ background: col }} /></div>
-        ))}
-        <div><span><b>KTEC Chennai → KTEC Pune</b><small>Loan to site · 2 crates</small></span><span className="chip">Inter-site</span></div>
-      </div>
+      {site.flows.length > 0 && <>
+        <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">{`Flows on the site map · ${site.short}`}</span></div>
+        <div className="rows">
+          {site.flows.map(([from, to, col, label]) => (
+            <div key={label}><span><b>{name(from)} → {name(to)}</b><small>{label}</small></span><span className="dot" style={{ background: col }} /></div>
+          ))}
+        </div>
+      </>}
     </DrawerFrame>
   );
 }

@@ -33,6 +33,9 @@ export interface AppState {
   dim: '3D' | '2D';
   /** A move request being drawn in the store twin: from a bin, to a bin once chosen. */
   moveDraft: { from: Bin; to: Bin | null } | null;
+  /** Open scrap case in Moves & scrap, or a new one being tagged (optionally from a lot). */
+  scrapId: string | null;
+  scrapNew: { lotId?: string } | null;
   kiosk: boolean;
   sheet: 'peek' | 'half' | 'full';
   railOpen: boolean;
@@ -68,7 +71,7 @@ function initialState(): AppState {
   const portrait = h > w * 1.05 || w < 820;
   return {
     screen, stage: stageFor(screen), site: ['ktec', 'isu', 'dhl', 'pnq'].includes(site) ? site : 'ktec', route: 0, ship: 0, mode: 'occupancy', t: 0, off: {},
-    bin: { ...FEATURED_BIN }, bld: null, user: p.get('user') ?? savedUser() ?? 'rv', peel: true, floor: null, walk: false, dim: '3D', moveDraft: null,
+    bin: { ...FEATURED_BIN }, bld: null, user: p.get('user') ?? savedUser() ?? 'rv', peel: true, floor: null, walk: false, dim: '3D', moveDraft: null, scrapId: null, scrapNew: null,
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     toast: null, overlay: null, loading: false, rev: 0,
     tod: null, fade: null, tour: false,
