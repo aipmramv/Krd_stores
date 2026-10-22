@@ -191,6 +191,11 @@ export async function confirmMove(id: string) {
   const mv = await moves.complete(id, getState().user).catch(fail);
   if (mv) toast(`${id} done · stock moved and bins updated`);
 }
+export function openReport(page: string, query = '') {
+  setState({ reportPage: page, reportQuery: query });
+  if (getState().screen !== 'reports') go('reports');
+}
+
 // ---------- Store actions ----------
 const okToast = (msg: string) => (x: unknown) => { if (x) toast(msg); return x; };
 export const binPick = (lotId: string, qty: number, purpose: string, againstReservation: boolean) =>

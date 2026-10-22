@@ -4,7 +4,7 @@ import { PARTS, SHIPS } from '../data/sample';
 import { SITES } from '../data/sites';
 import { BAYS, binId, FEATURED_BIN, isReserved, LEVELS, partInBin, rnd, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
-import type { Alert, ApprovalRule, Carrier, Coll, Collections, Location, Milestone, Movement, Part, ScrapCase, Shipment, StockLot, User, Zone } from './schema';
+import type { Alert, ApprovalRule, AreaTemplate, CostCentre, Purpose, Carrier, Coll, Collections, Location, Milestone, Movement, Part, ScrapCase, Shipment, StockLot, User, Zone } from './schema';
 
 const T0 = '2026-10-18T09:00:00.000Z';
 const stamp = <T extends object>(d: T) => ({ ...d, createdAt: T0, updatedAt: T0 });
@@ -39,6 +39,7 @@ export function seed(): { [C in Coll]: Collections[C][] } {
     { _id: 'ak', name: 'A. Khan', initials: 'AK', email: 'a.khan@example.com', role: 'ehs', sites: ['ktec', 'isu', 'dhl', 'pnq'] },
     { _id: 'mr', name: 'M. Rao', initials: 'MR', email: 'm.rao@example.com', role: 'finance', sites: ['ktec', 'isu', 'dhl', 'pnq'] },
     { _id: 'kn', name: 'K. Nair', initials: 'KN', email: 'k.nair@example.com', role: 'leadership', sites: ['ktec', 'isu', 'dhl', 'pnq'] },
+    { _id: 'tm', name: 'T. Menon', initials: 'TM', email: 't.menon@example.com', role: 'admin', sites: ['ktec', 'isu', 'dhl', 'pnq'] },
   ].map(u => stamp(u as User));
 
   const parts: Part[] = PARTS.map(([partNo, rev, description, category, uom, hazard, exportClass, , , , project]) =>
@@ -125,5 +126,21 @@ export function seed(): { [C in Coll]: Collections[C][] } {
     _id: `${site.id}-${i + 1}`, site: site.id, title, detail, severity: col === '#C8312B' ? 'high' as const : col === '#C77700' ? 'medium' as const : 'info' as const, status: 'open' as const, at: days(0),
   })));
 
-  return { users, parts, locations, stockLots, movements, scrapCases, shipments, carriers, approvalRules, alerts, auditLog: [] };
+  const purposes: Purpose[] = [
+    ['issue-lab', 'Issue to lab', 'issue', 'CC-KTEC-RD'], ['issue-build', 'Issue to project build', 'issue', 'CC-KTEC-PRJ'], ['pick-ship', 'Pick for shipment', 'pick', 'CC-LOG'],
+    ['sample', 'Engineering sample', 'pick', 'CC-KTEC-RD'], ['reslot', 'Re-slot for faster picking', 'move', 'CC-STORES'], ['consolidate', 'Consolidate part-full bins', 'move', 'CC-STORES'],
+    ['room', 'Make room for planned inbound', 'move', 'CC-STORES'], ['tower', 'Tower test', 'transfer', 'CC-ISU-TEST'],
+  ].map(([_id, name, kind, costCentre]) => stamp({ _id, name, kind: kind as Purpose['kind'], costCentre, active: true }));
+  const areaTemplates: AreaTemplate[] = [
+    stamp({ _id: 'esd-store', name: 'Electronics store · ESD', zone: 'ESD', racks: 4, bays: 12, levels: 4, binCapacity: 60, note: 'Shelving with ESD bins, grounded floor' }),
+    stamp({ _id: 'hazmat-cab', name: 'Hazmat cabinet', zone: 'Hazmat', racks: 1, bays: 2, levels: 3, binCapacity: 40, note: 'Li-ion and flammables, ventilated, 25 °C limit' }),
+    stamp({ _id: 'heavy-floor', name: 'Heavy floor storage', zone: 'Heavy', racks: 2, bays: 6, levels: 1, binCapacity: 4, note: 'Gearboxes and motors on pallets, forklift aisle' }),
+    stamp({ _id: 'quarantine', name: 'Quarantine cage', zone: 'Quarantine', racks: 1, bays: 4, levels: 2, binCapacity: 30, note: 'Locked; QA release required' }),
+  ];
+  const costCentres: CostCentre[] = [
+    ['CC-KTEC-RD', 'KTEC R&D labs', 'ktec', 'pr'], ['CC-KTEC-PRJ', 'KTEC project builds', 'ktec', 'pr'], ['CC-STORES', 'Stores operations', 'ktec', 'mk'],
+    ['CC-LOG', 'Logistics', 'ktec', 'rv'], ['CC-ISU-TEST', 'ISU test tower', 'isu', 'pr'], ['CC-ISU-PROD', 'ISU production', 'isu', 'mk'],
+  ].map(([code, name, site, owner]) => stamp({ _id: code, code, name, site, owner }));
+
+  return { users, parts, locations, stockLots, movements, scrapCases, shipments, carriers, approvalRules, alerts, auditLog: [], purposes, areaTemplates, costCentres };
 }

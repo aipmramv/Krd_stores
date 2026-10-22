@@ -83,15 +83,21 @@ export interface ApprovalRule extends Doc { kind: 'scrap' | 'move' | 'shipment';
 export type Severity = 'high' | 'medium' | 'info';
 export interface Alert extends Doc { site: string; title: string; detail: string; severity: Severity; status: 'open' | 'ack' | 'closed'; at: string; ref?: string }
 
+/** Why stock moves (picks, issues, moves): masters behind the purpose and reason lists. */
+export interface Purpose extends Doc { name: string; kind: MovementType; costCentre: string; active: boolean }
+/** Standard store or area layouts used when a site's store is configured. */
+export interface AreaTemplate extends Doc { name: string; zone: Zone; racks: number; bays: number; levels: number; binCapacity: number; note: string }
+export interface CostCentre extends Doc { code: string; name: string; site: string; owner: string }
+
 export interface AuditEntry extends Doc { at: string; user: string; action: 'insert' | 'update' | 'remove'; coll: Coll; docId: string; change?: Record<string, unknown> }
 
 export interface Collections {
   users: User; parts: Part; locations: Location; stockLots: StockLot; movements: Movement;
   scrapCases: ScrapCase; shipments: Shipment; carriers: Carrier; approvalRules: ApprovalRule;
-  alerts: Alert; auditLog: AuditEntry;
+  alerts: Alert; auditLog: AuditEntry; purposes: Purpose; areaTemplates: AreaTemplate; costCentres: CostCentre;
 }
 export type Coll = keyof Collections;
-export const COLLECTIONS: Coll[] = ['users', 'parts', 'locations', 'stockLots', 'movements', 'scrapCases', 'shipments', 'carriers', 'approvalRules', 'alerts', 'auditLog'];
+export const COLLECTIONS: Coll[] = ['users', 'parts', 'locations', 'stockLots', 'movements', 'scrapCases', 'shipments', 'carriers', 'approvalRules', 'alerts', 'auditLog', 'purposes', 'areaTemplates', 'costCentres'];
 
 /** Indexes the server creates; the demo database scans in memory and ignores them. */
 export const INDEXES: Partial<Record<Coll, Record<string, 1 | -1>[]>> = {

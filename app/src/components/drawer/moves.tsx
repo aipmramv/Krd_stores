@@ -8,7 +8,8 @@ import { available, canCancel, canExecute, checkMove, nextApproval } from '../..
 import { cancelMove, cancelMoveRequest, confirmMove, decideMove, setMoveTarget, submitMove } from '../../state/actions';
 import { useApp } from '../../state/store';
 
-const REASONS = ['Re-slot for faster picking', 'Consolidate part-full bins', 'Make room for planned inbound', 'Move to ESD bench stock', 'Other'];
+/** Used when the Movement purposes master has no active move purposes. */
+const FALLBACK = ['Re-slot for faster picking', 'Other'];
 const code = (loc?: string) => loc?.split(':').pop() ?? '—';
 
 export function MoveForm() {
@@ -16,7 +17,10 @@ export function MoveForm() {
   const from = `${site}:${binId(d.from)}`, to = d.to ? `${site}:${binId(d.to)}` : null;
   const lots = useQuery('stockLots', { locationId: from }).data, parts = useQuery('parts').data;
   const dest = useDoc('locations', to).data;
-  const [lotId, setLot] = useState<string>(''), [qty, setQty] = useState(1), [reason, setReason] = useState(REASONS[0]);
+  const purposes = useQuery('purposes', { kind: 'move', active: true }, { sort: { name: 1 } }).data.map(p => p.name);
+  const REASONS = purposes.length ? [...purposes, 'Other'] : FALLBACK;
+  const [lotId, setLot] = useState<string>(''), [qty, setQty] = useState(1), [picked, setReason] = useState('');
+  const reason = picked || REASONS[0];
   const [free, setFree] = useState<number | null>(null), [err, setErr] = useState<string | null>(null), [busy, setBusy] = useState(false);
   const lot = lots.find(l => l._id === lotId) ?? lots[0] ?? null;
 

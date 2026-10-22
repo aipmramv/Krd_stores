@@ -10,7 +10,7 @@ import * as A from '../../state/actions';
 import { useApp, type AppState } from '../../state/store';
 
 export type BinTask = NonNullable<AppState['binTask']>;
-const PURPOSES = ['Issue to lab', 'Issue to project build', 'Pick for shipment', 'Engineering sample'];
+const FALLBACK = ['Issue to lab', 'Pick for shipment'];
 const PROJECTS = ['DX Class 2027', 'MonoSpace retrofit', 'Escalator drive test', 'People flow sensing', '24/7 Connected', 'UltraRope trial'];
 const code = (loc?: string) => loc?.split(':').pop() ?? '—';
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
@@ -37,7 +37,10 @@ function LotSelect({ lots, parts, value, set, show }: { lots: StockLot[]; parts:
 }
 
 function Pick({ lots, parts }: { lots: StockLot[]; parts: Part[] }) {
-  const [id, setId] = useState(lots[0]?._id ?? ''), [qty, setQty] = useState(1), [purpose, setPurpose] = useState(PURPOSES[0]), [res, setRes] = useState(false);
+  const listed = useQuery('purposes', { kind: { $in: ['pick', 'issue'] }, active: true }, { sort: { name: 1 } }).data.map(p => p.name);
+  const PURPOSES = listed.length ? listed : FALLBACK;
+  const [id, setId] = useState(lots[0]?._id ?? ''), [qty, setQty] = useState(1), [chosen, setPurpose] = useState(''), [res, setRes] = useState(false);
+  const purpose = chosen || PURPOSES[0];
   const lot = lots.find(l => l._id === id) ?? lots[0];
   if (!lot) return <p className="note">Nothing to pick in this bin.</p>;
   return <>
