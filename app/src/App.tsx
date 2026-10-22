@@ -4,6 +4,7 @@ import { Overlay } from './components/Overlay';
 import { Mobile } from './components/pages/Mobile';
 import { Reports } from './components/pages/Reports';
 import { Controls, Crumbs, Loading, MoveBanner, Rail, Timeline, Toast } from './components/StageChrome';
+import { SelectionBar } from './components/StoreTools';
 import { ModuleTabs, TopBar } from './components/TopBar';
 import { MODULES } from './data/sample';
 import { mapEngine } from './map/mapEngine';
@@ -63,6 +64,7 @@ export function App() {
         <div id="radial" ref={radialRef} className="hidden" />
         <Loading />
         <MoveBanner />
+        <SelectionBar />
         <Crumbs hidden={isPage} />
         <Rail hidden={isPage} />
         <Controls hidden={isPage} />

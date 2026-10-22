@@ -8,7 +8,7 @@ import type { ScreenId } from '../data/types';
 import { db } from '../db';
 import { useQuery } from '../db/hooks';
 import { ROLE_LABEL } from '../db/schema';
-import { closeOverlay, go, goTo, openPalette, openPhoto, openReport, openTask, resetDemoData, selectSite, setKiosk, setUser, viewPhotoIn3D } from '../state/actions';
+import { closeOverlay, flashBeam, go, goTo, openPalette, openPhoto, openReport, openTask, resetDemoData, selectSite, setKiosk, setUser, viewPhotoIn3D } from '../state/actions';
 import { useApp } from '../state/store';
 
 interface PalItem { title: string; sub: string; hint: string; run: () => void }
@@ -24,7 +24,7 @@ function runHit(t: Target) {
   closeOverlay();
   switch (t.kind) {
     case 'part': openReport('Parts', t.partNo); break;
-    case 'bin': { const b = binOf(t.code); if (b) goTo(t.site, 'store', { bin: b, binTask: null, moveDraft: null, scrapNew: null }); else openReport('Sites and locations'); break; }
+    case 'bin': { const b = binOf(t.code); if (b) { goTo(t.site, 'store', { bin: b, binTask: null, moveDraft: null, scrapNew: null }); flashBeam(t.code); } else openReport('Sites and locations'); break; }
     case 'ship': goTo(t.site, 'shipments', { ship: t.id }); break;
     case 'scrap': goTo(t.site, 'movements', { scrapId: t.id, scrapNew: null }); break;
     case 'move':

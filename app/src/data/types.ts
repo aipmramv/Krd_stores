@@ -1,7 +1,7 @@
 export type ScreenId = 'network' | 'routes' | 'site' | 'store' | 'shipments' | 'movements' | 'reports' | 'mobile';
 export type MapScreen = 'network' | 'routes' | 'shipments';
 export type ThreeScreen = 'site' | 'movements' | 'store';
-export type ColorMode = 'occupancy' | 'ageing' | 'project' | 'hazard';
+export type ColorMode = 'occupancy' | 'ageing' | 'project' | 'hazard' | 'activity' | 'value';
 export type LatLng = [number, number];
 
 export type SiteKind = 'rnd' | 'factory' | 'warehouse';

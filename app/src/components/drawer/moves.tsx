@@ -5,7 +5,7 @@ import { binId, binOf } from '../../data/storeModel';
 import { useDoc, useQuery } from '../../db/hooks';
 import { ROLE_LABEL, type Movement, type StockLot } from '../../db/schema';
 import { available, canCancel, canExecute, checkMove, nextApproval } from '../../services/moves';
-import { cancelMove, cancelMoveRequest, confirmMove, decideMove, setMoveTarget, submitMove } from '../../state/actions';
+import { cancelMove, cancelMoveRequest, confirmMove, decideMove, setMoveArea, setMoveTarget, submitMove } from '../../state/actions';
 import { useApp } from '../../state/store';
 
 /** Used when the Movement purposes master has no active move purposes. */
@@ -14,7 +14,7 @@ const code = (loc?: string) => loc?.split(':').pop() ?? '—';
 
 export function MoveForm() {
   const d = useApp(s => s.moveDraft)!, site = useApp(s => s.site);
-  const from = `${site}:${binId(d.from)}`, to = d.to ? `${site}:${binId(d.to)}` : null;
+  const from = `${site}:${binId(d.from)}`, to = d.to ? `${site}:${binId(d.to)}` : d.toArea ? `${site}:${d.toArea}` : null;
   const lots = useQuery('stockLots', { locationId: from }).data, parts = useQuery('parts').data;
   const dest = useDoc('locations', to).data;
   const purposes = useQuery('purposes', { kind: 'move', active: true }, { sort: { name: 1 } }).data.map(p => p.name);
@@ -38,6 +38,7 @@ export function MoveForm() {
 
   const name = (l: StockLot) => parts.find(p => p._id === l.partNo)?.description ?? l.partNo;
   const bins = useQuery('locations', { site, store: 'electronics' }, { sort: { code: 1 } }).data;
+  const areas = useQuery('locations', { site, store: 'areas' }, { sort: { code: 1 } }).data;
   const siteLots = useQuery('stockLots', { site }).data;
   const used = new Map<string, number>();
   for (const l of siteLots) used.set(l.locationId, (used.get(l.locationId) ?? 0) + l.qty);
@@ -48,12 +49,17 @@ export function MoveForm() {
         <div><span>From</span><b>{binId(d.from)}</b></div>
       </div>
       <label className="fld"><span>To · tap or drag in the store, or choose</span>
-        <select value={d.to ? binId(d.to) : ''} onChange={e => { const b = binOf(e.target.value); if (b) setMoveTarget(b); }}>
-          <option value="" disabled>Choose a destination bin</option>
-          {bins.filter(b => b.code !== binId(d.from)).map(b => {
-            const free = b.capacity - (used.get(b._id) ?? 0);
-            return <option key={b._id} value={b.code} disabled={free < 1}>{b.code} · {free} free</option>;
-          })}
+        <select value={d.to ? binId(d.to) : d.toArea ?? ''} onChange={e => { const b = binOf(e.target.value); if (b) setMoveTarget(b); else setMoveArea(e.target.value); }}>
+          <option value="" disabled>Choose a destination bin or area</option>
+          <optgroup label="Bins">
+            {bins.filter(b => b.code !== binId(d.from)).map(b => {
+              const free = b.capacity - (used.get(b._id) ?? 0);
+              return <option key={b._id} value={b.code} disabled={free < 1}>{b.code} · {free} free</option>;
+            })}
+          </optgroup>
+          <optgroup label="Floor areas">
+            {areas.map(a => <option key={a._id} value={a.code}>{a.code} · {a.zone} · {a.capacity - (used.get(a._id) ?? 0)} free</option>)}
+          </optgroup>
         </select>
       </label>
       {lots.length === 0 ? <p className="note">This bin is empty, so there is nothing to move.</p> : <>
@@ -74,9 +80,9 @@ export function MoveForm() {
           <select value={reason} onChange={e => setReason(e.target.value)}>{REASONS.map(r => <option key={r}>{r}</option>)}</select>
         </label>
       </>}
-      {err && d.to && <p className="note bad" role="alert">{err}</p>}
+      {err && to && <p className="note bad" role="alert">{err}</p>}
       <div className="grid2">
-        <button className="btn primary" disabled={!lot || !d.to || !!err || busy} onClick={async () => { setBusy(true); await submitMove(lot!._id, qty, reason); setBusy(false); }}>Send request</button>
+        <button className="btn primary" disabled={!lot || !to || !!err || busy} onClick={async () => { setBusy(true); await submitMove(lot!._id, qty, reason); setBusy(false); }}>Send request</button>
         <button className="btn" onClick={cancelMove}>Cancel</button>
       </div>
     </div>

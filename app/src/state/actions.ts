@@ -9,6 +9,8 @@ import * as moves from '../services/moves';
 import * as scrap from '../services/scrap';
 import * as ships from '../services/shipments';
 import * as stock from '../services/stock';
+import { fitFor, freeQty, nearestFree, sumQty } from '../services/storeOps';
+import { getStoreView } from '../services/storeView';
 import { getState, MAP_SCREENS, setState, stageFor, THREE_SCREENS, USER_KEY, type AppState } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
@@ -83,10 +85,11 @@ async function travel(id: string) {
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-export function toast(msg: string) {
-  setState(s => ({ toast: { msg, n: (s.toast?.n ?? 0) + 1 } }));
+/** A short status message; with an action (Undo) it stays 10 seconds. */
+export function toast(msg: string, action?: { label: string; run: () => void }) {
+  setState(s => ({ toast: { msg, n: (s.toast?.n ?? 0) + 1, action } }));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => setState({ toast: null }), 3600);
+  toastTimer = setTimeout(() => setState({ toast: null }), action ? 10000 : 3600);
 }
 
 export function selectSite(id: string) {
@@ -147,7 +150,7 @@ const TASK: Record<string, AppState['binTask']> = { Pick: 'pick', 'Put-away': 'p
 export function setBinTask(t: AppState['binTask']) { setState({ binTask: t, moveDraft: null, scrapNew: null }); if (t) threeEngine.hideRadial(); else threeEngine.showRadial(); }
 
 /** Actions change today's data, so they are off while the timeline replays or forecasts. */
-function live() {
+export function live() {
   if (!getState().t) return true;
   toast('Actions apply to today · press Live first');
   return false;
@@ -175,7 +178,14 @@ export function setMoveTarget(to: Bin) {
   const d = getState().moveDraft;
   if (!d) return;
   if (binId(to) === binId(d.from)) { toast('Choose a different bin as the destination'); return; }
-  setState({ moveDraft: { ...d, to: { ...to } } });
+  setState({ moveDraft: { from: d.from, to: { ...to } } });
+  threeEngine.drawMoves();
+}
+/** Send the drawn move to a floor area (quarantine, hazmat, staging) instead of a bin. */
+export function setMoveArea(area: string) {
+  const d = getState().moveDraft;
+  if (!d) return;
+  setState({ moveDraft: { from: d.from, to: null, toArea: area } });
   threeEngine.drawMoves();
 }
 export function cancelMove() { setState({ moveDraft: null }); threeEngine.drawMoves(); threeEngine.showRadial(); }
@@ -184,13 +194,14 @@ const fail = (e: unknown) => { toast((e as Error).message); return null; };
 
 export async function submitMove(lotId: string, qty: number, reason: string) {
   const s = getState(), d = s.moveDraft;
-  if (!d?.to) { toast('Choose the destination bin'); return; }
-  const mv = await moves.requestMove({ site: s.site, lotId, to: `${s.site}:${binId(d.to)}`, qty, reason }, s.user).catch(fail);
+  const dest = d?.to ? binId(d.to) : d?.toArea;
+  if (!d || !dest) { toast('Choose the destination bin'); return; }
+  const mv = await moves.requestMove({ site: s.site, lotId, to: `${s.site}:${dest}`, qty, reason }, s.user).catch(fail);
   if (!mv) return;
   setState({ moveDraft: null });
   threeEngine.drawMoves();
   threeEngine.showRadial();
-  toast(mv.status === 'approved' ? `${mv._id} approved · ${qty} × ${mv.partNo} ${binId(d.from)} → ${binId(d.to)} · ready to move` : `${mv._id} sent to the store manager for approval`);
+  toast(mv.status === 'approved' ? `${mv._id} approved · ${qty} × ${mv.partNo} ${binId(d.from)} → ${dest} · ready to move` : `${mv._id} sent to the store manager for approval`, undo([mv._id]));
 }
 export async function decideMove(id: string, decision: 'approved' | 'rejected') {
   const mv = await moves.decide(id, decision, getState().user).catch(fail);
@@ -240,7 +251,8 @@ export async function binCount(entries: { lotId: string; counted: number }[]) {
   toast(!v.length ? 'Count matches · posted' : v.every(m => m.status === 'done') ? `Variance posted · ${v.map(m => `${(m.counted ?? 0) - m.qty > 0 ? '+' : ''}${(m.counted ?? 0) - m.qty}`).join(', ')}` : `Variance sent to the store manager · ${v.map(m => m._id).join(', ')}`);
 }
 export const binDecideCount = (id: string, d: 'approved' | 'rejected') => stock.decideCount(id, d, getState().user).catch(fail).then(okToast(d === 'approved' ? `${id} posted · stock adjusted` : `${id} · recount requested`));
-export const binReserve = (lotId: string, qty: number, project: string, until: string) => stock.reserve({ lotId, qty, project, until }, getState().user).catch(fail).then(okToast(`Reserved ${qty} for ${project} until ${until}`));
+export const binReserve = (lotId: string, qty: number, project: string, until: string) => stock.reserve({ lotId, qty, project, until }, getState().user).catch(fail)
+  .then(x => { if (x) toast(`Reserved ${qty} for ${project} until ${until}`, { label: 'Undo', run: () => void binRelease(lotId, qty) }); return x; });
 export const binRelease = (lotId: string, qty: number) => stock.release(lotId, qty, getState().user).catch(fail).then(okToast(`Released ${qty}`));
 
 // ---------- Shipments ----------
@@ -315,6 +327,79 @@ export async function cancelMoveRequest(id: string) {
   const mv = await moves.cancel(id, getState().user).catch(fail);
   if (mv) toast(`${id} cancelled`);
 }
+/** Toast action that withdraws move requests just sent. */
+const undo = (ids: string[]) => ({
+  label: 'Undo', run: () => void Promise.all(ids.map(id => moves.cancel(id, getState().user))).then(() => toast(`Withdrawn · ${ids.join(', ')}`), fail),
+});
+
+// ---------- Store twin tools ----------
+export const setSelectMode = (on: boolean) => { setState({ selectMode: on }); if (on) threeEngine.hideRadial(); };
+export function toggleSel(b: Bin) {
+  const id = binId(b);
+  setState(s => ({ storeSel: s.storeSel.includes(id) ? s.storeSel.filter(x => x !== id) : [...s.storeSel, id], bin: { ...b } }));
+}
+export const clearSel = () => { setState({ storeSel: [], selectMode: false, pickPath: false }); threeEngine.showRadial(); };
+export const setFollow = (partNo: string | null) => setState({ follow: partNo });
+export const toggleXray = () => setState(s => ({ xray: !s.xray }));
+export const togglePickPath = () => setState(s => ({ pickPath: !s.pickPath }));
+let beamTimer: ReturnType<typeof setTimeout> | undefined;
+/** A light beam over a bin to find it on the floor; fades after a few seconds. */
+export function flashBeam(code: string) {
+  setState({ beam: code });
+  clearTimeout(beamTimer);
+  beamTimer = setTimeout(() => setState({ beam: null }), 8000);
+}
+
+/** Open moves into each bin or area of the current store, by code. */
+function incoming() {
+  const m = new Map<string, number>();
+  for (const mv of getStoreView()?.moves ?? []) if (mv.to) { const c = mv.to.split(':')[1]; m.set(c, (m.get(c) ?? 0) + mv.qty); }
+  return m;
+}
+/** Move everything free in the selected bins next to a target bin (nearest free bins) or into an area. */
+export async function groupMove(target: { bin?: Bin; area?: string }) {
+  const s = getState(), view = getStoreView();
+  if (!live() || !view || view.site !== s.site) return;
+  const lots = s.storeSel.flatMap(c => view.lots.get(c) ?? []).filter(l => l.qty > l.reserved);
+  if (!lots.length) { toast('Nothing free to move in the selected bins'); return; }
+  const inc = incoming(), used = new Map<string, number>();
+  for (const [c, ls] of view.lots) used.set(c, sumQty(ls) + (inc.get(c) ?? 0));
+  for (const [c, n] of inc) if (!used.has(c)) used.set(c, n);
+  const plan = new Map<string, string>();
+  if (target.area) {
+    const area = view.areas.get(target.area), parts = lots.map(l => view.parts.get(l.partNo)!).filter(Boolean);
+    const f = fitFor(area, used.get(target.area) ?? 0, 0, parts, lots.reduce((n, l) => n + l.qty - l.reserved, 0));
+    if (f.fit === 'no') { toast(f.reason); return; }
+    for (const l of lots) plan.set(l._id, target.area);
+  } else if (target.bin) {
+    const dest = nearestFree(target.bin, lots.map(l => ({ code: l._id, qty: l.qty - l.reserved })), view.locs, used, new Set(s.storeSel));
+    for (const [k, v] of dest) plan.set(k, v);
+  }
+  const ids: string[] = [], skipped: string[] = [];
+  for (const l of lots) {
+    const to = plan.get(l._id);
+    if (!to) { skipped.push(l.partNo); continue; }
+    const qty = await moves.available(l);
+    if (!qty) continue;
+    const mv = await moves.requestMove({ site: s.site, lotId: l._id, to: `${s.site}:${to}`, qty, reason: 'Re-slot for faster picking' }, s.user).catch(e => { skipped.push(`${l.partNo} (${(e as Error).message})`); return null; });
+    if (mv) ids.push(mv._id);
+  }
+  if (!ids.length) { toast(`No room found · ${skipped.join(', ') || 'nothing moved'}`); return; }
+  setState({ storeSel: [], selectMode: false, pickPath: false });
+  toast(`${ids.length} move request${ids.length > 1 ? 's' : ''} sent · ${s.storeSel.length} bins → ${target.area ?? `near ${binId(target.bin!)}`}${skipped.length ? ` · ${skipped.length} not placed` : ''}`, undo(ids));
+}
+/** Drop an inbound pallet on a bin: put the whole task away there if it fits. */
+export async function putAwayAt(taskId: string, code: string) {
+  if (!live()) return;
+  const view = getStoreView(), task = view?.putaways.find(m => m._id === taskId);
+  if (!view || !task) return;
+  const loc = view.locs.get(code) ?? view.areas.get(code), part = view.parts.get(task.partNo);
+  const f = fitFor(loc, sumQty(view.lots.get(code) ?? []), incoming().get(code) ?? 0, part ? [part] : [], task.qty);
+  if (f.fit !== 'ok') { toast(f.fit === 'partial' ? `${code} has room for ${f.free} of ${task.qty} · choose a bigger bin` : f.reason); return; }
+  await binPutAway(taskId, `${getState().site}:${code}`, task.qty);
+}
+/** Free stock in bins (for the selection summary). */
+export const freeIn = (codes: string[]) => codes.reduce((n, c) => n + freeQty(getStoreView()?.lots.get(c) ?? []), 0);
 
 export function zoom(d: 1 | -1) {
   if (isMap(getState().screen)) mapEngine.zoomBy(d);

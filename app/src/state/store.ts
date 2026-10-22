@@ -36,7 +36,14 @@ export interface AppState {
   walk: boolean;
   dim: '3D' | '2D';
   /** A move request being drawn in the store twin: from a bin, to a bin once chosen. */
-  moveDraft: { from: Bin; to: Bin | null } | null;
+  moveDraft: { from: Bin; to: Bin | null; toArea?: string } | null;
+  /** Store twin tools: tap-to-select mode and the selected bins, a part to follow, x-ray, the pick path and a guiding beam. */
+  selectMode: boolean;
+  storeSel: string[];
+  follow: string | null;
+  xray: boolean;
+  pickPath: boolean;
+  beam: string | null;
   /** Open scrap case in Moves & scrap, or a new one being tagged (optionally from a lot). */
   scrapId: string | null;
   scrapNew: { lotId?: string } | null;
@@ -49,7 +56,7 @@ export interface AppState {
   sheet: 'peek' | 'half' | 'full';
   railOpen: boolean;
   drawerOpen: boolean;
-  toast: { msg: string; n: number } | null;
+  toast: { msg: string; n: number; action?: { label: string; run: () => void } } | null;
   overlay: Overlay;
   loading: boolean;
   /** Time of day in hours IST for the sun; null follows the live clock. */
@@ -80,7 +87,7 @@ function initialState(): AppState {
   const portrait = h > w * 1.05 || w < 820;
   return {
     screen, stage: stageFor(screen), site: ['ktec', 'isu', 'dhl', 'pnq'].includes(site) ? site : 'ktec', ship: null, plan: { from: 'ktec', to: 'pnq', lines: [{ partNo: 'KM-DX-ACT-220', qty: 6 }], option: null }, planOptions: [], booked: null, mode: 'occupancy', t: 0, off: {},
-    bin: { ...FEATURED_BIN }, bld: null, user: p.get('user') ?? savedUser() ?? 'rv', peel: true, floor: null, walk: false, dim: '3D', moveDraft: null, scrapId: null, scrapNew: null, binTask: null, reportPage: 'Parts', reportQuery: '',
+    bin: { ...FEATURED_BIN }, bld: null, user: p.get('user') ?? savedUser() ?? 'rv', peel: true, floor: null, walk: false, dim: '3D', moveDraft: null, selectMode: false, storeSel: [], follow: null, xray: false, pickPath: false, beam: null, scrapId: null, scrapNew: null, binTask: null, reportPage: 'Parts', reportQuery: '',
     kiosk: p.get('mode') === 'kiosk', sheet: 'half', railOpen: !(portrait || w < 1180), drawerOpen: true,
     toast: null, overlay: null, loading: false, rev: 0,
     tod: null, fade: null, tour: false,

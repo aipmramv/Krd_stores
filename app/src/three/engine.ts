@@ -7,17 +7,20 @@ import { SITE_BY_ID } from '../data/sites';
 import { binId, binOf, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
 import { HANDOFF_ZOOM, metresPerPixel, stageSafeArea, type Rect } from '../safeArea';
-import { binAction, enterFloor, go, openPhoto, selectBin, selectBuilding, setBinTask, setMoveTarget, startMove, toast } from '../state/actions';
+import type { Part } from '../db/schema';
+import { binAction, cancelMove, enterFloor, go, groupMove, live, openPhoto, putAwayAt, selectBin, selectBuilding, setBinTask, setMoveArea, setMoveTarget, startMove, toast, toggleSel } from '../state/actions';
+import { fitFor, freeQty, pickOrder, sumQty, type FitResult } from '../services/storeOps';
 import { getStoreView, loadStoreView, onStoreView } from '../services/storeView';
 import { getState, isOn, setState, subscribe, THREE_SCREENS } from '../state/store';
 import { Labels } from './labels';
 import { buildSite, setHovered, siteCached, type SiteScene } from './site';
-import { binPos, buildStore, drawMoves, recolorBins, ROWZ, X0 } from './store3d';
+import { areaAt, areaPos, binPos, buildStore, drawMoves, ghostAt, recolorBins, ROWZ, setDragPreview, X0 } from './store3d';
 
 const RADIAL = ['Move', 'Reserve', 'Count', 'Scrap', 'History', 'Docs'];
 const H = () => document.documentElement;
 const rem = () => parseFloat(getComputedStyle(H()).fontSize);
 
+type Drag = ({ kind: 'ghost'; task: string; codes?: undefined } | { kind: 'group'; from: Bin; codes: string[] } | { kind: 'bin'; from: Bin; codes?: undefined }) & { label: string };
 interface Tween { p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3; via?: THREE.Vector3; s: number; ms: number; done?: () => void }
 
 /** Midnight IST today; the timeline offsets from it. */
@@ -64,32 +67,29 @@ class ThreeEngine {
     // Any manual orbit ends a cinematic tour and an in-flight camera move.
     ctl.addEventListener('start', () => { this.tween = null; if (getState().tour) setState({ tour: false }); });
     // Treat a press that barely moves as a tap, so orbiting never selects things. In the store,
-    // pressing and holding a bin starts a move: drag to the destination bin and let go.
+    // pressing and holding starts a drag (see startDrag); every bin then previews whether the
+    // stock would fit, and letting go over a bin or a floor area makes the move.
     let down: [number, number] | null = null;
     R.domElement.addEventListener('pointerdown', e => {
       down = [e.clientX, e.clientY];
-      const b = getState().screen === 'store' && !getState().moveDraft ? this.binAt(e) : null;
-      if (b) this.press = setTimeout(() => { this.press = null; this.dragFrom = b; this.dragTo = null; ctl.enabled = false; navigator.vibrate?.(15); startMove(b); }, 420);
+      if (getState().screen !== 'store' || getState().moveDraft) return;
+      this.ray.setFromCamera(this.ndc(e), this.cam);
+      const task = ghostAt(this.ray), b = task ? null : this.binAt(e);
+      if (!task && !b) return;
+      this.press = setTimeout(() => { this.press = null; if (this.startDrag(task, b)) { ctl.enabled = false; navigator.vibrate?.(15); this.moveDrag(e); } }, 420);
     });
     R.domElement.addEventListener('pointerup', e => {
       clearTimeout(this.press ?? undefined); this.press = null;
-      if (this.dragFrom) {
-        if (this.dragTo) setMoveTarget(this.dragTo);
-        this.dragFrom = this.dragTo = null; ctl.enabled = true; down = null;
-        return;
-      }
+      if (this.drag) { this.endDrag(); ctl.enabled = true; down = null; return; }
       if (!down) return;
       const d = Math.hypot(e.clientX - down[0], e.clientY - down[1]);
       down = null;
       if (d < 8) this.pick(e);
     });
+    R.domElement.addEventListener('pointercancel', () => { clearTimeout(this.press ?? undefined); this.press = null; if (this.drag) { this.drop = null; this.endDrag(); ctl.enabled = true; } });
     R.domElement.addEventListener('pointermove', e => {
       if (this.press && down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { clearTimeout(this.press); this.press = null; }
-      if (this.dragFrom) {
-        const b = this.binAt(e), to = b && binId(b) !== binId(this.dragFrom) ? b : null;
-        if ((to && binId(to)) !== (this.dragTo && binId(this.dragTo))) { this.dragTo = to; drawMoves({ from: this.dragFrom, to }); }
-        return;
-      }
+      if (this.drag) { this.moveDrag(e); return; }
       if (e.pointerType === 'mouse') this.hover(e);
     });
     onStoreView(() => { recolorBins(); drawMoves(getState().moveDraft); if (getState().screen === 'store' && this.active === buildStore().sc) this.storeLabels(); });
@@ -102,13 +102,87 @@ class ThreeEngine {
   }
 
   private press: ReturnType<typeof setTimeout> | null = null;
-  private dragFrom: Bin | null = null;
-  private dragTo: Bin | null = null;
+  private drag: (Drag & { fits: Map<string, FitResult> }) | null = null;
+  private drop: { bin?: Bin; area?: string } | null = null;
+  private tip: HTMLElement | null = null;
 
   private binAt(e: PointerEvent): Bin | null {
     this.ray.setFromCamera(this.ndc(e), this.cam);
     const st = buildStore(), hit = this.ray.intersectObject(st.bins)[0];
     return hit && hit.instanceId !== undefined ? st.idx[hit.instanceId] : null;
+  }
+
+  /**
+   * Start dragging an inbound pallet, the selected bins (when the pressed bin is one of them) or a
+   * single bin. Works out how every bin and area would take the dragged stock, for the preview.
+   */
+  private startDrag(task: string | null, b: Bin | null): boolean {
+    const s = getState(), view = getStoreView();
+    if (!view || view.site !== s.site || !live()) return false;
+    let codes: string[] = [], partNos: string[], qty: number, drag: Drag;
+    if (task) {
+      const m = view.putaways.find(x => x._id === task);
+      if (!m) return false;
+      partNos = [m.partNo]; qty = m.qty; drag = { kind: 'ghost', task, label: `${m.qty} × ${m.partNo}` };
+    } else {
+      const id = binId(b!), group = s.storeSel.includes(id) && s.storeSel.length > 1;
+      codes = group ? s.storeSel : [id];
+      const lots = codes.flatMap(c => view.lots.get(c) ?? []);
+      if (!lots.length) { toast(`${id} is empty · nothing to move`); return false; }
+      partNos = lots.map(l => l.partNo); qty = Math.max(1, freeQty(lots));
+      drag = group ? { kind: 'group', from: b!, codes, label: `${codes.length} bins · ${qty} units` } : { kind: 'bin', from: b!, label: `${id} · ${qty} free` };
+      if (!group) startMove(b!);
+    }
+    const parts = [...new Set(partNos)].map(p => view.parts.get(p)).filter((p): p is Part => !!p);
+    const inc = new Map<string, number>();
+    for (const m of view.moves) if (m.to) { const c = m.to.split(':')[1]; inc.set(c, (inc.get(c) ?? 0) + m.qty); }
+    const fits = new Map<string, FitResult>();
+    for (const loc of [...view.locs.values(), ...view.areas.values()]) {
+      if (codes.includes(loc.code)) continue;
+      const f = fitFor(loc, sumQty(view.lots.get(loc.code) ?? []), inc.get(loc.code) ?? 0, parts, qty);
+      fits.set(loc.code, drag.kind === 'group' && f.fit === 'partial' ? { ...f, fit: 'ok', reason: `${f.reason} here · the rest goes to the nearest free bins` } : f);
+    }
+    this.drag = { ...drag, fits }; this.drop = null;
+    setDragPreview(new Map([...fits].map(([c, f]) => [c, f.fit])));
+    if (!this.tip) { this.tip = document.createElement('div'); this.tip.className = 'dragtip'; this.el!.parentElement!.appendChild(this.tip); }
+    return true;
+  }
+
+  private moveDrag(e: PointerEvent) {
+    const d = this.drag!, r = this.el!.parentElement!.getBoundingClientRect();
+    this.ray.setFromCamera(this.ndc(e), this.cam);
+    const b = this.binAt(e), bin = b && !(d.kind !== 'ghost' && (d.codes ?? [binId(d.from)]).includes(binId(b))) ? b : null;
+    const area = bin ? null : areaAt(this.ray);
+    const code = bin ? binId(bin) : area, prev = this.drop?.bin ? binId(this.drop.bin) : this.drop?.area;
+    if (code !== prev) {
+      this.drop = code ? { bin: bin ?? undefined, area: area ?? undefined } : null;
+      if (area !== (this.drop?.area ?? null) || prev !== code) setDragPreview(new Map([...d.fits].map(([c, f]) => [c, f.fit])), area);
+      if (d.kind === 'bin') drawMoves({ from: d.from, to: bin, toArea: area ?? undefined });
+      if (code && d.fits.get(code)?.fit === 'ok') navigator.vibrate?.(6);
+    }
+    const f = code ? d.fits.get(code) : null;
+    const tip = this.tip!;
+    tip.className = `dragtip ${f?.fit ?? ''}`;
+    tip.innerHTML = `<b>${d.label}${code ? ` → ${code}` : ''}</b><span>${f ? f.reason : code ? 'Not a storage location' : 'Drag onto a bin or a floor area'}</span>`;
+    tip.style.transform = `translate(${e.clientX - r.left + 18}px, ${e.clientY - r.top - 58}px)`;
+    tip.style.display = 'flex';
+  }
+
+  private endDrag() {
+    const d = this.drag!, at = this.drop, code = at?.bin ? binId(at.bin) : at?.area, f = code ? d.fits.get(code) : null;
+    this.drag = this.drop = null;
+    if (this.tip) this.tip.style.display = 'none';
+    setDragPreview(null);
+    // A drop that goes nowhere, or where the stock cannot go, ends the gesture without a move.
+    if (!code || !f || f.fit === 'no') {
+      if (f) toast(f.reason);
+      if (d.kind === 'bin') cancelMove(); else drawMoves(getState().moveDraft);
+      return;
+    }
+    if (d.kind === 'ghost') void putAwayAt(d.task, code);
+    else if (d.kind === 'group') void groupMove(at!);
+    else if (at!.bin) setMoveTarget(at!.bin);
+    else setMoveArea(at!.area!);
   }
 
   /** Redraw the move arcs, including the request being drawn. */
@@ -151,8 +225,16 @@ class ThreeEngine {
 
   /** React to store changes that need the scene: tour and photo pins. */
   private lastPhotos: unknown = null;
+  private storeKey = '';
+  private pathKey = '';
   private sync() {
     const s = getState();
+    if (s.screen === 'store' && this.active === buildStore().sc) {
+      // Follow and x-ray recolour the bins; a new pick path renumbers its stops.
+      const k = `${s.follow}|${s.xray}|${s.mode}`, p = s.pickPath ? s.storeSel.join() : '';
+      if (k !== this.storeKey) { this.storeKey = k; recolorBins(); }
+      if (p !== this.pathKey) { this.pathKey = p; this.storeLabels(); }
+    }
     if (this.ctl) this.ctl.autoRotate = s.tour && (s.screen === 'site' || s.screen === 'movements');
     if (this.site && s.stage === 'three') {
       const ph = s.photos[this.site.site.id];
@@ -275,9 +357,14 @@ class ThreeEngine {
       if (hit && hit.instanceId !== undefined) {
         const b = st.idx[hit.instanceId];
         if (s.moveDraft && !s.moveDraft.to) { setMoveTarget(b); return; }
+        if (s.selectMode) { toggleSel(b); return; }
         selectBin(b); this.showRadial(); return;
       }
-      this.hideRadial();
+      const area = s.moveDraft && !s.moveDraft.to ? areaAt(this.ray) : null;
+      if (area) { setMoveArea(area); return; }
+      const task = s.selectMode ? null : ghostAt(this.ray);
+      if (task) { setBinTask('putaway'); return; }
+      if (!s.selectMode) this.hideRadial();
       return;
     }
     const hit = this.facilityAt(e);
@@ -441,6 +528,12 @@ class ThreeEngine {
       L.add(new THREE.Vector3(-12, 1.8, 13.5), `<b>Waiting for put-away · ${pa.length} task${pa.length > 1 ? 's' : ''}</b><span>${units} units · first ${first.ref ?? first._id}</span>`,
         { tag: 'button', show: () => isOn(getState(), 'store', 'ghost'), onClick: () => setBinTask('putaway') });
     }
+    const sel = getState().pickPath ? getState().storeSel.map(binOf).filter((b): b is Bin => !!b) : [];
+    if (sel.length) {
+      const { order, len } = pickOrder(sel);
+      order.forEach((b, i) => L.add(binPos(b).add(new THREE.Vector3(0, 1, 0)), `<b>${i + 1}</b>`, { cls: 'stop', tag: 'span', pri: 6 }));
+      L.add(new THREE.Vector3(-17, .2, 13.5), `<b>Pick path · ${order.length} stops</b><span>${Math.round(len)} m walk from the entrance</span>`, { tag: 'span', pri: 6 });
+    }
     for (const m of (view?.counts ?? []).slice(0, 2)) {
       const b = binOf(m.from);
       if (!b) continue;
@@ -533,6 +626,14 @@ class ThreeEngine {
 
   recolorBins() { recolorBins(); }
 
+  /** Where a bin or floor area is on screen, in client pixels (browser tests). */
+  screenOf(code: string): [number, number] | null {
+    const b = binOf(code), p = b ? binPos(b) : areaPos(code);
+    if (!p || !this.el) return null;
+    const v = p.clone().project(this.cam), r = this.el.getBoundingClientRect();
+    return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height];
+  }
+
   zoomBy(d: number) {
     if (!this.ctl) return;
     const tg = this.ctl.target, dir = this.cam.position.clone().sub(tg).multiplyScalar(d > 0 ? .7 : 1.4);
@@ -562,3 +663,5 @@ class ThreeEngine {
 }
 
 export const threeEngine = new ThreeEngine();
+// Browser tests (?e2e) find bins and floor areas on screen through this.
+if (location.search.includes('e2e')) Object.assign(window, { twin: threeEngine });

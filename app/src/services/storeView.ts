@@ -20,6 +20,12 @@ export interface StoreView {
   putaways: Movement[];
   /** Timeline offset in days the lots were derived for (0 = live). */
   t: number;
+  /** Movements at each bin over the last 30 days (activity heatmap). */
+  activity: Map<string, number>;
+  /** Areas of the site (quarantine, hazmat, staging…) by code. */
+  areas: Map<string, Location>;
+  /** All movements of the site (task board, bin timelines, flows). */
+  movements: Movement[];
 }
 
 interface Raw { site: string; lots: StockLot[]; movements: Movement[]; shipments: Shipment[]; locs: Location[]; parts: Part[] }
@@ -32,6 +38,15 @@ export const onStoreView = (f: (v: StoreView) => void) => { subs.add(f); return 
 
 const code = (locationId: string) => locationId.split(':')[1];
 
+function activityOf(movements: Movement[]) {
+  const since = Date.now() - 30 * 86400000, m = new Map<string, number>();
+  for (const mv of movements) {
+    if (mv.status !== 'done' || Date.parse(mv.updatedAt ?? '') < since) continue;
+    for (const loc of [mv.from, mv.to]) if (loc) { const c = code(loc); m.set(c, (m.get(c) ?? 0) + 1); }
+  }
+  return m;
+}
+
 function derive(r: Raw, t: number): StoreView {
   const lots = t === 0 ? r.lots : stockAsOf(r.lots, r.movements, r.shipments, asOfDate(t).getTime());
   const byCode = new Map<string, StockLot[]>();
@@ -41,6 +56,7 @@ function derive(r: Raw, t: number): StoreView {
     site: r.site, lots: byCode, locs: new Map(r.locs.filter(l => l.store === 'electronics').map(l => [l.code, l])), parts: new Map(r.parts.map(p => [p._id, p])),
     moves: open('move', ['requested', 'approved']).filter(isOpen), counts: open('count', ['requested']),
     putaways: open('putaway', ['requested']).sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')), t,
+    activity: activityOf(r.movements), areas: new Map(r.locs.filter(l => l.store !== 'electronics').map(l => [l.code, l])), movements: r.movements,
   };
 }
 

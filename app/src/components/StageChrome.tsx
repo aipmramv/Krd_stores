@@ -6,10 +6,11 @@ import { primary, SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { ScreenId } from '../data/types';
 import {
-  cancelMove, exitFloor, go, goLive, resetView, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, toggleRail, toggleTour, zoom,
+  cancelMove, exitFloor, setSelectMode, go, goLive, resetView, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, toggleRail, toggleTour, zoom,
 } from '../state/actions';
 import { asOfDate } from '../services/timeline';
 import { isOn, setState, THREE_SCREENS, useApp } from '../state/store';
+import { StoreToolsRail } from './StoreTools';
 
 export function Crumbs({ hidden }: { hidden: boolean }) {
   const s = useApp(x => x);
@@ -75,6 +76,7 @@ export function Rail({ hidden }: { hidden: boolean }) {
               <div><i style={{ background: '#fff', border: '1.5px dashed #1450F5' }} />Reserved / planned</div>
               <div><i style={{ background: '#C8312B' }} />Exception</div>
             </div>
+            <StoreToolsRail />
           </>}
           {scr === 'site' && !primary(SITE_BY_ID[s.site]).levels && <>
             <div className="sec"><span className="eb ink">{primary(SITE_BY_ID[s.site]).n}</span></div>
@@ -114,13 +116,14 @@ function SunAndView() {
 }
 
 export function Controls({ hidden }: { hidden: boolean }) {
-  const screen = useApp(s => s.screen), dim = useApp(s => s.dim);
+  const screen = useApp(s => s.screen), dim = useApp(s => s.dim), sel = useApp(s => s.selectMode);
   return (
     <div className={`ctrls${hidden ? ' hidden' : ''}`} id="ctrls">
       <button onClick={() => zoom(1)} aria-label="Zoom in">+</button>
       <button onClick={() => zoom(-1)} aria-label="Zoom out">−</button>
       <button className="t" onClick={resetView} aria-label="Reset view">Fit</button>
       <button className={`t${THREE_SCREENS.includes(screen) ? '' : ' hidden'}`} onClick={toggleDim}>{dim}</button>
+      {screen === 'store' && <button className={`t${sel ? ' on' : ''}`} onClick={() => setSelectMode(!sel)} aria-pressed={sel} aria-label="Select bins">Select</button>}
     </div>
   );
 }
@@ -154,10 +157,10 @@ export function Timeline({ hidden }: { hidden: boolean }) {
 
 export function MoveBanner() {
   const d = useApp(s => s.moveDraft), screen = useApp(s => s.screen);
-  if (!d || d.to || screen !== 'store') return null;
+  if (!d || d.to || d.toArea || screen !== 'store') return null;
   return (
     <div className="banner">
-      <span>Tap the destination bin for {binId(d.from)} · or press and drag from a bin</span>
+      <span>Tap the destination bin or floor area for {binId(d.from)} · or press and drag from a bin</span>
       <button className="btn" onClick={cancelMove}>Cancel</button>
     </div>
   );
@@ -170,5 +173,5 @@ export function Loading() {
 
 export function Toast() {
   const t = useApp(s => s.toast);
-  return t ? <div className="toast" role="status">{t.msg}</div> : null;
+  return t ? <div className="toast" role="status"><span>{t.msg}</span>{t.action && <button onClick={() => { setState({ toast: null }); t.action!.run(); }}>{t.action.label}</button>}</div> : null;
 }

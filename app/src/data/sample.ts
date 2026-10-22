@@ -24,8 +24,10 @@ export const LEGENDS: Record<ColorMode, [string, string][]> = {
   ageing: [['#AAE1C8', 'Under 30 days'], ['#F3EEEA', '30–90 days'], ['#FFE141', '90–180 days'], ['#FFCDD7', 'Over 180 days']],
   project: [['#1450F5', 'DX Class 2027'], ['#D2F5FF', 'MonoSpace retrofit'], ['#AAE1C8', 'Escalator drive test'], ['#C4C7CD', 'Unassigned']],
   hazard: [['#D2F5FF', 'ESD sensitive'], ['#A1B9FB', 'Temperature controlled'], ['#FFCDD7', 'Hazmat'], ['#DEE0E4', 'General']],
+  activity: [['#E8EEFE', 'No activity · 30 days'], ['#A1B9FB', '1–2 movements'], ['#5F88F8', '3–5 movements'], ['#1450F5', '6 or more']],
+  value: [['#E8EEFE', 'Under ₹50,000'], ['#A1B9FB', '₹50,000–2 lakh'], ['#5F88F8', '₹2–10 lakh'], ['#1450F5', 'Over ₹10 lakh']],
 };
-export const COLOR_MODES: [ColorMode, string][] = [['occupancy', 'Occupancy'], ['ageing', 'Ageing'], ['project', 'Project'], ['hazard', 'Hazard']];
+export const COLOR_MODES: [ColorMode, string][] = [['occupancy', 'Occupancy'], ['ageing', 'Ageing'], ['activity', 'Activity'], ['value', 'Value'], ['project', 'Project'], ['hazard', 'Hazard']];
 
 export const PARTS: Part[] = [
   ['KM-DX-ACT-220', 'C', 'Door operator actuator', 'Electromech', 'pcs', 'ESD', '—', 12, 4, 'D-05-04 · Chennai', 'DX Class 2027', 'Available'],
