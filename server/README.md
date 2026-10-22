@@ -58,7 +58,7 @@ The code uses only standard MongoDB driver calls, so it runs on both Cosmos DB o
 | `GET /api/health` | |
 
 Collections: `users`, `parts`, `locations`, `stockLots`, `movements`, `scrapCases`, `shipments`,
-`carriers`, `approvalRules`, `alerts`, `auditLog`. The document shapes are in
+`carriers`, `approvalRules`, `alerts`, `auditLog`, `purposes`, `areaTemplates`, `costCentres`. The document shapes are in
 `app/src/db/schema.ts`, and the server and the app share them.
 
 Every write adds an `auditLog` entry with the `x-user` header. `$where`, `$function`,

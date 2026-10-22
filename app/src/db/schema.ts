@@ -45,6 +45,8 @@ export interface Movement extends Doc {
   status: MovementStatus; requestedBy: string; approvals: Approval[];
   /** Counted quantity, for counts. */
   counted?: number;
+  /** Expected date of a planned receipt (put-away without stock yet). */
+  due?: string;
 }
 
 export type ScrapStep = 'tag' | 'reason' | 'approval' | 'move' | 'dispose' | 'writeoff' | 'closed';

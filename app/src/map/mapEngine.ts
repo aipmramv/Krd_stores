@@ -7,6 +7,7 @@ import type { Feature } from 'geojson';
 import { AIR, NETWORK_BOUNDS, NH48, RAIL, XFERS } from '../data/sample';
 import { db, onChange } from '../db';
 import type { Shipment } from '../db/schema';
+import { asOfDate, shipmentAsOf } from '../services/timeline';
 import { SITE_BY_ID, SITES } from '../data/sites';
 import type { LatLng, ScreenId } from '../data/types';
 import { HANDOFF_ZOOM, safeCentreOffset } from '../safeArea';
@@ -136,7 +137,7 @@ class MapEngine {
     if (changed('site') || changed('off') || changed('screen')) this.drawSites();
     if (s.screen === 'routes' && (changed('plan') || changed('planOptions') || changed('off') || changed('screen'))) this.drawRoutes();
     if (s.screen === 'routes' && (changed('plan') && (s.plan.from !== p.plan?.from || s.plan.to !== p.plan?.to))) this.fitScreen();
-    if (s.screen !== 'routes' && (changed('ship') || changed('screen'))) this.drawShips();
+    if (s.screen !== 'routes' && (changed('ship') || changed('screen') || changed('t'))) this.drawShips();
     if (changed('off') || changed('screen')) this.layersFor(s.screen);
   }
 
@@ -199,16 +200,21 @@ class MapEngine {
     const s = getState();
     if (s.screen !== 'routes' && MAP_SCREENS.includes(s.screen)) { this.drawShips(); if (s.screen === 'shipments') this.fitScreen(); }
   }
+  /** Shipments as of the timeline date (replay hides later milestones, forecast projects ETAs). */
+  private shipsAsOf() {
+    const t = getState().t;
+    return t ? this.ships.map(s => shipmentAsOf(s, asOfDate(t).getTime())).filter((s): s is Shipment => !!s) : this.ships;
+  }
   private selectedShip() {
-    const id = getState().ship;
-    return this.ships.find(x => x._id === id) ?? this.ships.find(x => !['Delivered', 'Cancelled'].includes(x.status)) ?? null;
+    const id = getState().ship, list = this.shipsAsOf();
+    return list.find(x => x._id === id) ?? list.find(x => !['Delivered', 'Cancelled'].includes(x.status)) ?? null;
   }
 
   private drawShips() {
     const s = getState(), sel = this.selectedShip();
     this.clear('ship');
-    this.ships.forEach((sh, i) => {
-      const on = sh === sel;
+    this.shipsAsOf().forEach((sh, i) => {
+      const on = sh._id === sel?._id;
       if (!on && ['Delivered', 'Cancelled', 'Awaiting EHS approval'].includes(sh.status)) return;
       const a = SITE_BY_ID[sh.from], b = SITE_BY_ID[sh.to];
       if (!a || !b) return;

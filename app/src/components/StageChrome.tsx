@@ -8,6 +8,7 @@ import type { ScreenId } from '../data/types';
 import {
   cancelMove, exitFloor, go, goLive, resetView, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, toggleRail, toggleTour, zoom,
 } from '../state/actions';
+import { asOfDate } from '../services/timeline';
 import { isOn, setState, THREE_SCREENS, useApp } from '../state/store';
 
 export function Crumbs({ hidden }: { hidden: boolean }) {
@@ -124,25 +125,26 @@ export function Controls({ hidden }: { hidden: boolean }) {
   );
 }
 
-const TODAY = new Date(2026, 9, 18);
 const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const short = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
+/** Replay 30 days back or forecast 4 weeks ahead: stock, bins and shipments follow the date. */
 export function Timeline({ hidden }: { hidden: boolean }) {
   const t = useApp(s => s.t);
-  const d = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + t);
+  const d = asOfDate(t), from = asOfDate(-30), to = asOfDate(28);
   return (
     <div className={`panel timeline${hidden ? ' hidden' : ''}`} id="timeline">
       <button className="btn" onClick={goLive}>Live</button>
       <div className="tl-l">
-        <span className="eb">{t < 0 ? 'Replay' : t > 0 ? 'Forecast' : 'Live'}</span>
+        <span className="eb">{t < 0 ? 'Replay · stock as it was' : t > 0 ? 'Forecast · plans and ETAs' : 'Live'}</span>
         <b>{t === 0 ? 'Today · ' + fmt(d) : fmt(d)}</b>
       </div>
       <div className="tl-m">
         <input type="range" min={-30} max={28} step={1} value={t} aria-label="Time travel" onChange={e => setTime(+e.target.value)} />
         <div className="tl-ticks">
-          <span style={{ left: 0 }}>18 Sep · replay 30 days</span>
+          <span style={{ left: 0 }}>{short(from)} · replay 30 days</span>
           <span style={{ left: '51.7%', transform: 'translateX(-50%)', color: '#141414', fontWeight: 600 }}>Today</span>
-          <span style={{ right: 0 }}>15 Nov · forecast 4 weeks</span>
+          <span style={{ right: 0 }}>{short(to)} · forecast 4 weeks</span>
         </div>
       </div>
       <div className="tl-meta"><span>Live latency 1.2 s</span><span id="fps">60 fps</span></div>

@@ -3,7 +3,7 @@ import { FEATURED_BIN } from '../data/storeModel';
 import type { Bin, ColorMode, ScreenId } from '../data/types';
 
 export type Stage = 'map' | 'three' | 'page';
-export type Overlay = null | { kind: 'palette'; q: string } | { kind: 'display'; top: number; right: number } | { kind: 'user'; top: number; right: number } | { kind: 'photo'; site: string; i: number };
+export type Overlay = null | { kind: 'palette'; q: string } | { kind: 'display'; top: number; right: number } | { kind: 'user'; top: number; right: number } | { kind: 'alerts'; top: number; right: number } | { kind: 'photo'; site: string; i: number };
 
 export interface Photo { id: string; title: string; thumb: string; full: string; page: string; credit: string; licence: string; ll: [number, number] | null; source: 'Wikimedia Commons' | 'Mapillary' }
 export type PhotoState = { status: 'loading' } | { status: 'ready'; items: Photo[] } | { status: 'error' };

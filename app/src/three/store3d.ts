@@ -118,7 +118,7 @@ export function buildStore(): StoreScene {
     ghosts.visible = isOn(s, 'store', 'ghost');
     selBox.position.copy(binPos(s.bin));
     // A second PO lands a week out, so the forecast shows more planned pallets.
-    const want = Math.min(10, (view ? view.putaways.reduce((n, m) => n + Math.max(1, Math.round(m.qty / 10)), 0) : 5) + (s.t > 7 ? 3 : 0));
+    const want = Math.min(10, view ? view.putaways.reduce((n, m) => n + Math.max(1, Math.round(m.qty / 10)), 0) : 5);
     if (want !== ghostN) mkGhosts(want);
   };
 

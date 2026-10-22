@@ -6,7 +6,8 @@ import { BAYS, binId, FEATURED_BIN, isReserved, LEVELS, partInBin, rnd, ROWS } f
 import type { Bin } from '../data/types';
 import type { Alert, ApprovalRule, AreaTemplate, CostCentre, Purpose, Carrier, Coll, Collections, Location, Milestone, Movement, Part, ScrapCase, Shipment, StockLot, User, Zone } from './schema';
 
-const T0 = '2026-10-18T09:00:00.000Z';
+/** Seed time: the start of the current hour, so dates in the demo stay relative to today. */
+const T0 = new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString();
 const stamp = <T extends object>(d: T) => ({ ...d, createdAt: T0, updatedAt: T0 });
 const days = (n: number) => new Date(Date.parse(T0) + n * 86400000).toISOString();
 
@@ -83,7 +84,7 @@ export function seed(): { [C in Coll]: Collections[C][] } {
   boards.reserved = 12;
 
   const movements: Movement[] = [
-    stamp({ _id: 'MR-26-1180', site: 'ktec', type: 'putaway', partNo: 'KM-DX-ACT-220', qty: 20, to: 'ktec:D-05-04', ref: 'PO 4500182', reason: 'Planned inbound · 21 Oct', status: 'requested', requestedBy: 'mk', approvals: [] }),
+    stamp({ _id: 'MR-26-1180', site: 'ktec', type: 'putaway', partNo: 'KM-DX-ACT-220', qty: 20, to: 'ktec:D-05-04', ref: 'PO 4500182', reason: 'Planned inbound · PO 4500182', due: days(3), status: 'requested', requestedBy: 'mk', approvals: [] }),
     stamp({ _id: 'MR-26-1181', site: 'ktec', type: 'count', partNo: 'KM-PCB-IOT-022', qty: 40, counted: 36, from: 'ktec:C-10-04', reason: 'Cycle count variance · recount today', status: 'requested', requestedBy: 'si', approvals: [{ role: 'storeManager', decision: 'pending' }] }),
     stamp({ _id: 'MR-26-1182', site: 'ktec', type: 'issue', partNo: 'KM-DX-ACT-220', qty: 4, from: 'ktec:D-05-04', to: 'ktec:Lab L-03', ref: 'DX Class 2027', reason: 'Issue to lab · 20 Oct', status: 'approved', requestedBy: 'pr', approvals: [{ role: 'storeManager', user: 'mk', decision: 'approved', at: days(0) }] }),
     stamp({ _id: 'MR-26-1183', site: 'isu', type: 'transfer', partNo: 'KM-MOT-PM-150', qty: 1, from: 'isu:Heavy L0', to: 'isu:Test tower', reason: 'Tower test · 2 drives', status: 'done', requestedBy: 'pr', approvals: [{ role: 'storeManager', user: 'mk', decision: 'approved', at: days(-1) }] }),
@@ -104,7 +105,8 @@ export function seed(): { [C in Coll]: Collections[C][] } {
     const milestones: Milestone[] = MS.map((label, i) => ({ label, done: i <= upto, at: i <= upto ? days(i - upto - 1) : undefined }));
     const part = PARTS[(n * 5) % PARTS.length];
     return stamp({
-      _id: s.id, site: s.from, carrier: s.carrier, mode: /Blue Dart|DHL/.test(s.carrier) ? 'air' as const : 'road' as const, from: s.from, to: s.to, eta: s.eta, status: s.status, dir: s.dir,
+      etaAt: days(1 + (n % 3)), pickupAt: days(-1 - (n % 2)), eta: `ETA ${new Date(days(1 + (n % 3))).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+      _id: s.id, site: s.from, carrier: s.carrier, mode: /Blue Dart|DHL/.test(s.carrier) ? 'air' as const : 'road' as const, from: s.from, to: s.to, status: s.status, dir: s.dir,
       items: [{ partNo: part[0], qty: 2 + (n % 4) * 3 }], milestones, docs: ['Invoice', 'E-way bill', ...(upto >= 4 ? ['POD'] : [])], hold: s.hold,
     });
   });

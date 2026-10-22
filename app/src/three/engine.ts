@@ -20,12 +20,12 @@ const rem = () => parseFloat(getComputedStyle(H()).fontSize);
 
 interface Tween { p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3; via?: THREE.Vector3; s: number; ms: number; done?: () => void }
 
-/** Base date of the sample data; the timeline offsets from it. */
-const TODAY_UTC = Date.UTC(2026, 9, 18);
+/** Midnight IST today; the timeline offsets from it. */
+const todayIst = () => { const ist = Date.now() + 5.5 * 3600000; return ist - (ist % 86400000) - 5.5 * 3600000; };
 const istNow = () => { const d = new Date(); return (d.getUTCHours() + d.getUTCMinutes() / 60 + 5.5) % 24; };
 export function sceneDate() {
   const s = getState(), h = s.tod ?? istNow();
-  return new Date(TODAY_UTC + s.t * 86400000 + (h - 5.5) * 3600000);
+  return new Date(todayIst() + s.t * 86400000 + h * 3600000);
 }
 
 class ThreeEngine {

@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
+import { getStoreView, onStoreView } from '../../services/storeView';
+import { TimeNotice } from '../TimeNotice';
 import { primary, SITE_BY_ID, SITES } from '../../data/sites';
 import { loadPhotos } from '../../services/photos';
 import { binId, rnd } from '../../data/storeModel';
@@ -189,7 +191,9 @@ export function SiteDrawer() {
 export function StoreDrawer() {
   const bin = useApp(s => s.bin), site = useApp(s => s.site), draft = useApp(s => s.moveDraft), scrapNew = useApp(s => s.scrapNew), task = useApp(s => s.binTask), id = binId(bin);
   const loc = `${site}:${id}`;
-  const lots = useQuery('stockLots', { locationId: loc }).data, parts = useQuery('parts').data;
+  const live = useQuery('stockLots', { locationId: loc }).data, parts = useQuery('parts').data;
+  const t = useApp(s => s.t), view = useSyncExternalStore(onStoreView, getStoreView);
+  const lots = t && view?.site === site ? view.lots.get(id) ?? [] : live;
   const location = useDoc('locations', loc).data;
   const inbound = useQuery('movements', { to: loc, status: { $in: ['requested', 'approved'] } }).data;
   const last = useQuery('movements', { $or: [{ from: loc }, { to: loc }], status: 'done' }, { sort: { updatedAt: -1 }, limit: 1 }).data[0];
@@ -202,6 +206,7 @@ export function StoreDrawer() {
   const occ = Math.round(Math.min(1, onHand / cap) * 100);
   return (
     <DrawerFrame title="Bin">
+      <TimeNotice what="Stock in this bin" />
       <div className="dh">
         <span className="eb">Bin {id} · Electronics store{location ? ` · ${location.zone}` : ''}</span>
         <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem' }}>
@@ -217,7 +222,7 @@ export function StoreDrawer() {
         </div>
       </div>
       <div className="kpis k3">
-        <div><span>On hand</span><b>{onHand}</b></div><div><span>Reserved</span><b>{reserved}</b></div><div><span>Inbound</span><b>{into ? `+${into}` : '—'}</b></div>
+        <div><span>On hand</span><b>{onHand}</b></div><div><span>Reserved</span><b>{reserved}</b></div><div><span>Inbound</span><b>{into && t >= 0 ? `+${into}` : '—'}</b></div>
       </div>
       <div className="kv">
         <div><span>Last movement</span><span>{last ? `${last.type} · ${last.qty} · ${new Date(last.updatedAt ?? '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'None recorded'}</span></div>
@@ -237,7 +242,7 @@ export function StoreDrawer() {
       <MoveList filter={{ $or: [{ from: loc }, { to: loc }] }} empty="No move requests for this bin." />
       <div className="grid3">
         {['Pick', 'Put-away', 'Reserve', 'Count', 'Relocate', 'Label'].map((a, j) => (
-          <button key={a} className={`btn ${j === 0 ? 'primary' : ''}`} onClick={() => (a === 'Relocate' ? startMove(bin) : binAction(a))}>{a}</button>
+          <button key={a} className={`btn ${j === 0 ? 'primary' : ''}`} disabled={!!t && a !== 'Label'} onClick={() => (a === 'Relocate' ? startMove(bin) : binAction(a))}>{a}</button>
         ))}
       </div>
     </DrawerFrame>

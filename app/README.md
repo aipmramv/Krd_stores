@@ -97,3 +97,20 @@ Arcs mark them in the store: yellow while awaiting approval, blue once approved.
 
 Each workflow checks the signed-in user's role, records a movement or a case history, and is
 audited. `npm test` covers every workflow against the demo database.
+
+## Masters, reports, alerts, search and timeline
+
+- **Reports & masters** (`components/pages`): `MasterGrid` edits any collection. You can
+  filter, sort, click a cell to edit (with validation), add, delete, bulk edit, and export or
+  import Excel/CSV (rows update by id or are added; invalid rows are skipped with the reason).
+  Administrators edit users and approval rules; store and logistics managers edit the other
+  masters. Movement purposes supply the reasons in the move and pick forms. Reports come from
+  `services/reports.ts`.
+- **Alerts centre** (the bell): `services/inbox.ts` works out what is waiting for the signed-in
+  user's role (approvals, count variances, scrap steps, dangerous goods, holds, put-aways), and
+  site alerts can be acknowledged or closed.
+- **Search** (Ctrl K): `services/search.ts` finds parts, bins and lots, AWBs, POs and MR/SC
+  numbers, people and sites, and opens the right screen.
+- **Timeline**: `services/timeline.ts` derives stock and shipments as of a date. Replay undoes
+  later actions; forecast applies planned receipts, bookings, ETAs and approved moves. The store
+  twin, bin drawer, map and tracker follow it, and actions are off away from Live.

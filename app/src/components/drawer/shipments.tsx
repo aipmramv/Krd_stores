@@ -5,6 +5,8 @@ import { SITE_BY_ID, SITES } from '../../data/sites';
 import { useDoc, useQuery } from '../../db/hooks';
 import type { Part, Shipment } from '../../db/schema';
 import { canHandle, nextMilestone, quote, weight } from '../../services/shipments';
+import { asOfDate, shipmentAsOf } from '../../services/timeline';
+import { TimeNotice } from '../TimeNotice';
 import * as A from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
@@ -113,7 +115,7 @@ function ShipmentDetail({ s, parts }: { s: Shipment; parts: Map<string, Part> })
   const me = useDoc('users', useApp(x => x.user)).data;
   const [claim, setClaim] = useState(false), [kind, setKind] = useState<'Damage' | 'Shortage' | 'Delay'>('Damage'), [amount, setAmount] = useState(0), [note, setNote] = useState('');
   const [holdNote, setHoldNote] = useState('');
-  const next = nextMilestone(s), can = canHandle(me);
+  const t = useApp(x => x.t), next = t ? null : nextMilestone(s), can = canHandle(me) && !t;
   const doneUpTo = s.milestones.reduce((n, m, i) => (m.done ? i : n), -1);
   return <>
     <div className="st"><span className="eb ink">Milestones · {s._id}</span></div>
@@ -137,7 +139,7 @@ function ShipmentDetail({ s, parts }: { s: Shipment; parts: Map<string, Part> })
       {s.cost ? <div><span>Cost · CO₂e</span><span>{inr(s.cost)}{s.co2 ? ` · ${s.co2}` : ''}</span></div> : null}
       {s.notifiedAt && <div><span>Receiver</span><span>Notified {when(s.notifiedAt)}</span></div>}
     </div>
-    {s.status === 'Awaiting EHS approval' && (me?.role === 'ehs' || me?.role === 'admin') && <div className="grid2" style={{ paddingTop: 0 }}>
+    {!t && s.status === 'Awaiting EHS approval' && (me?.role === 'ehs' || me?.role === 'admin') && <div className="grid2" style={{ paddingTop: 0 }}>
       <button className="btn primary" onClick={() => void A.shipApprove(s._id)}>Approve dangerous goods</button>
       <button className="btn" onClick={() => void A.shipApprove(s._id, 'rejected')}>Reject</button>
     </div>}
@@ -168,16 +170,19 @@ function ShipmentDetail({ s, parts }: { s: Shipment; parts: Map<string, Part> })
 }
 
 export function ShipmentsDrawer() {
-  const selId = useApp(s => s.ship), list = useQuery('shipments', {}, { sort: { createdAt: -1 } }).data, parts = useQuery('parts').data;
+  const selId = useApp(s => s.ship), t = useApp(s => s.t), parts = useQuery('parts').data;
+  const stored = useQuery('shipments', {}, { sort: { createdAt: -1 } }).data;
+  const list = useMemo(() => (t ? stored.map(s => shipmentAsOf(s, asOfDate(t).getTime())).filter((s): s is NonNullable<typeof s> => !!s) : stored), [stored, t]);
   const pmap = useMemo(() => new Map(parts.map(p => [p._id, p])), [parts]);
   const [f, setF] = useState<'all' | 'in' | 'out' | 'exc'>('all');
   const shown = list.filter(s => (f === 'all' ? true : f === 'exc' ? isException(s) : s.dir === f));
   const sel = list.find(s => s._id === selId) ?? list.find(s => !['Delivered', 'Cancelled'].includes(s.status)) ?? list[0];
   return (
-    <DrawerFrame title="Shipment tracker" foot={sel ? <>
+    <DrawerFrame title="Shipment tracker" foot={sel && !t ? <>
       <button className="btn primary" onClick={() => void A.shipNotify(sel._id)}>Notify receiver</button>
       <button className="btn" onClick={() => { A.setPlan({ from: sel.from, to: sel.to, lines: sel.items }); A.go('routes'); }}>Re-route</button>
     </> : undefined}>
+      <TimeNotice what="Shipments" />
       <div className="dh">
         <span className="eb">All carriers · India</span>
         <div className="chips" style={{ marginTop: '.75rem' }}>
@@ -191,7 +196,7 @@ export function ShipmentsDrawer() {
           <button key={x._id} className={`rowbtn ${x === sel ? 'sel' : ''}`} onClick={() => A.selectShip(x._id)}>
             <span><b>{x.carrier} · {x._id}</b><small>{SITE_BY_ID[x.from]?.name} → {SITE_BY_ID[x.to]?.name}</small></span>
             <span className="rt">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '.375rem', justifyContent: 'flex-end' }}><span className="dot" style={{ background: dot(x) }} />{x.status}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '.375rem', justifyContent: 'flex-end' }}><span className="dot" style={{ background: dot(x) }} />{x.status}{'projected' in x && x.projected ? ' · expected' : ''}</span>
               <small>{x.eta}</small>
             </span>
           </button>

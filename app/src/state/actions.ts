@@ -1,5 +1,5 @@
 import { SITE_BY_ID } from '../data/sites';
-import { binId } from '../data/storeModel';
+import { binId, binOf } from '../data/storeModel';
 import type { Bin, ColorMode, ScreenId } from '../data/types';
 import { mapEngine } from '../map/mapEngine';
 import { loadPhotos } from '../services/photos';
@@ -9,7 +9,7 @@ import * as moves from '../services/moves';
 import * as scrap from '../services/scrap';
 import * as ships from '../services/shipments';
 import * as stock from '../services/stock';
-import { getState, MAP_SCREENS, setState, stageFor, USER_KEY, type AppState } from './store';
+import { getState, MAP_SCREENS, setState, stageFor, THREE_SCREENS, USER_KEY, type AppState } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
 const isSiteScreen = (s: ScreenId) => s === 'site' || s === 'movements';
@@ -146,8 +146,16 @@ export function selectBin(b: Bin) { setState({ bin: b }); }
 const TASK: Record<string, AppState['binTask']> = { Pick: 'pick', 'Put-away': 'putaway', Count: 'count', Reserve: 'reserve', History: 'history' };
 export function setBinTask(t: AppState['binTask']) { setState({ binTask: t, moveDraft: null, scrapNew: null }); if (t) threeEngine.hideRadial(); else threeEngine.showRadial(); }
 
+/** Actions change today's data, so they are off while the timeline replays or forecasts. */
+function live() {
+  if (!getState().t) return true;
+  toast('Actions apply to today · press Live first');
+  return false;
+}
+
 export function binAction(a: string) {
   const { bin } = getState(), id = binId(bin), loc = `${getState().site}:${id}`;
+  if (!['Label', 'Docs', 'History'].includes(a) && !live()) return;
   if (a === 'Move') { startMove(bin); return; }
   if (TASK[a]) { setBinTask(TASK[a]); return; }
   if (a === 'Label') { void import('../components/drawer/storeTasks').then(m => m.printLabels(loc)); return; }
@@ -158,6 +166,7 @@ export function binAction(a: string) {
 // ---------- Move requests ----------
 /** Start drawing a move from a bin: the destination comes from a tap, a drag or the form. */
 export function startMove(from: Bin, to: Bin | null = null) {
+  if (!live()) return;
   setState({ moveDraft: { from: { ...from }, to: to && binId(to) !== binId(from) ? { ...to } : null }, bin: { ...from } });
   threeEngine.hideRadial();
   threeEngine.drawMoves();
@@ -191,6 +200,27 @@ export async function confirmMove(id: string) {
   const mv = await moves.complete(id, getState().user).catch(fail);
   if (mv) toast(`${id} done · stock moved and bins updated`);
 }
+/** Jump to a screen at a site with extra state (used by the inbox and search). */
+export function goTo(site: string, screen: ScreenId, patch: Partial<AppState> = {}) {
+  const s = getState(), moved = s.site !== site;
+  setState({ overlay: null, t: 0, ...patch, ...(moved ? { site, bld: null, floor: null, walk: false } : {}) });
+  if (s.screen !== screen) go(screen);
+  else if (moved && THREE_SCREENS.includes(screen)) void threeEngine.enter({ reset: true });
+  else if (screen === 'store') threeEngine.showRadial();
+  if (MAP_SCREENS.includes(screen)) mapEngine.fitScreen();
+}
+export const openAlerts = (r: DOMRect) => setState({ overlay: { kind: 'alerts', top: r.bottom + 6, right: Math.max(8, innerWidth - r.right) } });
+export async function openTask(t: { kind: string; id: string; site: string }) {
+  if (t.kind === 'move') goTo(t.site, 'movements', { scrapId: null, scrapNew: null });
+  else if (t.kind === 'scrap') goTo(t.site, 'movements', { scrapId: t.id, scrapNew: null });
+  else if (t.kind === 'putaway') goTo(t.site, 'store', { binTask: 'putaway', moveDraft: null });
+  else if (t.kind === 'count') {
+    const m = await db.get('movements', t.id), b = binOf(m?.from);
+    goTo(t.site, 'store', { binTask: 'count', moveDraft: null, ...(b ? { bin: b } : {}) });
+  } else goTo(t.site, 'shipments', { ship: t.id });
+}
+export const setAlertStatus = (id: string, status: 'ack' | 'closed') => db.update('alerts', id, { status }).then(() => toast(status === 'ack' ? 'Alert acknowledged' : 'Alert closed'), fail);
+
 export function openReport(page: string, query = '') {
   setState({ reportPage: page, reportQuery: query });
   if (getState().screen !== 'reports') go('reports');
@@ -260,7 +290,7 @@ export async function openShipDoc(id: string, kind: string) {
 
 // ---------- Scrap cases ----------
 export const openScrap = (id: string) => setState({ scrapId: id, scrapNew: null });
-export const newScrap = (lotId?: string) => { setState({ scrapNew: { lotId }, scrapId: null }); threeEngine.hideRadial(); };
+export const newScrap = (lotId?: string) => { if (!live()) return; setState({ scrapNew: { lotId }, scrapId: null }); threeEngine.hideRadial(); };
 export const closeScrap = () => { setState({ scrapId: null, scrapNew: null }); if (getState().screen === 'store') threeEngine.showRadial(); };
 const done = (msg: (c: { _id: string }) => string) => (c: { _id: string } | null) => { if (c) toast(msg(c)); return c; };
 export async function tagScrap(lotId: string, qty: number, photos: string[], note: string) {
