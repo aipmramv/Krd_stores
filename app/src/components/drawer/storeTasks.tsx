@@ -6,7 +6,9 @@ import { SITE_BY_ID } from '../../data/sites';
 import { db } from '../../db';
 import { useDoc, useQuery } from '../../db/hooks';
 import type { Movement, Part, StockLot } from '../../db/schema';
+import { binSeries, delta } from '../../services/flow';
 import * as A from '../../state/actions';
+import { BinChart } from '../pages/FlowCharts';
 import { useApp, type AppState } from '../../state/store';
 
 export type BinTask = NonNullable<AppState['binTask']>;
@@ -133,14 +135,30 @@ function Reserve({ lots, parts }: { lots: StockLot[]; parts: Part[] }) {
 }
 
 const VERB: Record<Movement['type'], string> = { move: 'Move', pick: 'Pick', putaway: 'Put-away', count: 'Count', reserve: 'Reservation', issue: 'Issue', transfer: 'Transfer' };
+const MARK: Partial<Record<Movement['type'], string>> = { pick: '−', putaway: '+', move: '⇄', count: '#', reserve: 'R', issue: '−', transfer: '⇄' };
+/** The bin's last 30 days: units over time, then every recorded action, newest first. */
 function History({ loc }: { loc: string }) {
-  const list = useQuery('movements', { $or: [{ from: loc }, { to: loc }] }, { sort: { updatedAt: -1 }, limit: 40 }).data, users = useQuery('users').data;
+  const list = useQuery('movements', { $or: [{ from: loc }, { to: loc }] }, { sort: { updatedAt: -1 } }).data, users = useQuery('users').data;
+  const lots = useQuery('stockLots', { locationId: loc }).data, place = useDoc('locations', loc).data;
+  const units = lots.reduce((n, l) => n + l.qty, 0), now = Date.now();
   if (!list.length) return <p className="note">No recorded activity for this bin yet.</p>;
-  return <div className="rows">{list.map(m => (
-    <div key={m._id}><span><b>{VERB[m.type]} · {m.qty > 0 ? m.qty : `−${-m.qty}`} × {m.partNo}</b>
-      <small>{m.reason ?? ''}{m.ref ? ` · ${m.ref}` : ''} · {users.find(u => u._id === m.requestedBy)?.name ?? m.requestedBy} · {when(m.updatedAt)}</small></span>
-      <span className="chip">{m.status}</span></div>
-  ))}</div>;
+  const series = binSeries(list, loc, units, now - 30 * 864e5, now);
+  return <>
+    <div className="st"><span className="eb ink">Units in the bin · last 30 days</span></div>
+    <div style={{ padding: '0 1.25rem .75rem' }}><BinChart series={series} capacity={place?.capacity ?? 60} /></div>
+    <div className="st" style={{ borderTop: '1px solid #DEE0E4' }}><span className="eb ink">Timeline</span></div>
+    <ol className="tline">{list.slice(0, 60).map(m => {
+      const d = delta(m, loc), who = users.find(u => u._id === (m.assignee ?? m.requestedBy))?.name ?? m.requestedBy;
+      return (
+        <li key={m._id} className={m.status}>
+          <i aria-hidden>{MARK[m.type] ?? '•'}</i>
+          <span><b>{VERB[m.type]} · {m.qty} × {m.partNo}{d ? <em className={d > 0 ? 'in' : 'out'}>{d > 0 ? '+' : '−'}{Math.abs(d)}</em> : null}</b>
+            <small>{m.from && m.from !== loc ? `from ${code(m.from)} · ` : ''}{m.to && m.to !== loc ? `to ${code(m.to)} · ` : ''}{m.reason ?? ''}{m.ref ? ` · ${m.ref}` : ''}</small>
+            <small>{who} · {when(m.updatedAt)} · {m.status}</small></span>
+        </li>
+      );
+    })}</ol>
+  </>;
 }
 
 const TITLES: Record<BinTask, string> = { pick: 'Pick', putaway: 'Put-away', count: 'Cycle count', reserve: 'Reserve', history: 'History' };

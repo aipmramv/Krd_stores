@@ -47,6 +47,9 @@ export interface Movement extends Doc {
   counted?: number;
   /** Expected date of a planned receipt (put-away without stock yet). */
   due?: string;
+  /** Who is doing the work on the floor, and when they started (task board); null when unassigned or not started. */
+  assignee?: string | null;
+  startedAt?: string | null;
 }
 
 export type ScrapStep = 'tag' | 'reason' | 'approval' | 'move' | 'dispose' | 'writeoff' | 'closed';

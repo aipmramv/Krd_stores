@@ -197,23 +197,24 @@ export function buildStore(): StoreScene {
     if (pk !== pathKey) { pathKey = pk; drawPath(path, s.pickPath ? s.storeSel : []); }
 
     // Trolleys follow the aisles from source to destination, pausing at each end.
-    const moves = (view?.moves ?? []).filter(m => binOf(m.from) && (binOf(m.to) || areaPos(m.to ?? '')));
-    const tk = moves.map(m => m._id + m.status).join();
+    // Moves and put-aways someone started (task board) run their route; approved or requested ones wait at the source.
+    const posKnown = (loc?: string) => !!(binOf(loc) || areaPos(loc?.split(':').pop() ?? ''));
+    const moves = [...(view?.moves ?? []), ...(view?.putaways ?? []).filter(m => m.startedAt)].filter(m => posKnown(m.from) && posKnown(m.to));
+    const tk = moves.map(m => m._id + m.status + (m.startedAt ?? '')).join();
     if (tk !== trolleyKey) {
       trolleyKey = tk; trolleys.clear();
       moves.forEach((m, i) => {
-        const a = accessPoint(binOf(m.from)!), toBin = binOf(m.to);
-        const b: P = toBin ? accessPoint(toBin) : [areaPos(m.to!)!.x, areaPos(m.to!)!.z];
-        const r = route(a, b);
-        const mesh = new THREE.Mesh(trolleyGeo, m.status === 'approved' ? tMat.approved : tMat.requested);
+        const pt = (loc: string): P => { const bn = binOf(loc); if (bn) return accessPoint(bn); const ap = areaPos(loc.split(':').pop()!)!; return [ap.x, ap.z]; };
+        const r = route(pt(m.from!), pt(m.to!));
+        const running = !!m.startedAt;
+        const mesh = new THREE.Mesh(trolleyGeo, running || m.status === 'approved' ? tMat.approved : tMat.requested);
         mesh.castShadow = true;
-        mesh.userData = { pts: r.pts, len: r.len, off: i * .37, approved: m.status === 'approved' };
+        mesh.userData = { pts: r.pts, len: r.len, off: i * .37, approved: running };
         trolleys.add(mesh);
       });
     }
     for (const o of trolleys.children) {
       const { pts, len, off, approved } = o.userData as { pts: P[]; len: number; off: number; approved: boolean };
-      // Approved moves run the route; requested ones wait at the source.
       const phase = ((t * 3.2) / Math.max(8, len) + off) % 1.4;
       const k = approved ? Math.min(1, Math.max(0, phase - .2)) : 0;
       const [x, z] = along(pts, len * k);

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Drawer } from './components/drawer/Drawer';
 import { Overlay } from './components/Overlay';
+import { Board } from './components/pages/Board';
 import { Mobile } from './components/pages/Mobile';
 import { Reports } from './components/pages/Reports';
 import { Controls, Crumbs, Loading, MoveBanner, Rail, Timeline, Toast } from './components/StageChrome';
@@ -72,6 +73,7 @@ export function App() {
         <Timeline hidden={isPage} />
         <Reports hidden={screen !== 'reports'} />
         <Mobile hidden={screen !== 'mobile'} />
+        <Board hidden={screen !== 'board'} />
         <Toast />
       </main>
       <ModuleTabs dock />

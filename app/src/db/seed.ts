@@ -10,6 +10,67 @@ import type { Alert, ApprovalRule, AreaTemplate, CostCentre, Purpose, Carrier, C
 const T0 = new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString();
 const stamp = <T extends object>(d: T) => ({ ...d, createdAt: T0, updatedAt: T0 });
 const days = (n: number) => new Date(Date.parse(T0) + n * 86400000).toISOString();
+const hours = (n: number) => new Date(Date.parse(T0) + n * 3600000).toISOString();
+
+/** Deterministic random numbers for the generated history (mulberry32). */
+function rng(seed: number) {
+  return () => {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** Store working hours (IST) weighted to the morning and afternoon peaks. */
+const HOUR_W: [number, number][] = [[8, 2], [9, 6], [10, 8], [11, 7], [12, 3], [13, 2], [14, 6], [15, 8], [16, 6], [17, 4], [18, 2], [19, 1]];
+const IST = 5.5 * 3600000;
+/** A working moment `back` days before T0: weekdays mostly, Saturdays light, no Sundays. */
+function workTime(r: () => number, back: number) {
+  let day = Math.floor((Date.parse(T0) + IST) / 86400000) - back;
+  // 0 = Sunday (1 Jan 1970 was a Thursday); Sunday work and most Saturday work moves to an earlier weekday.
+  const dow = () => (day + 4) % 7;
+  while (dow() === 0 || (dow() === 6 && r() < .6)) day -= 1 + Math.floor(r() * 5);
+  const total = HOUR_W.reduce((n, [, w]) => n + w, 0);
+  let x = r() * total, h = 8;
+  for (const [hh, w] of HOUR_W) { if ((x -= w) < 0) { h = hh; break; } }
+  return day * 86400000 - IST + (h + r()) * 3600000;
+}
+const PICK_PURPOSE = ['Lab test', 'Field repair', 'Prototype build', 'Customer site'];
+
+/**
+ * Thirty days of finished work in the electronics stores, made from the stock as it is now so the
+ * timeline replay stays consistent: picks from lots, re-slotting moves into bins, put-aways of lots
+ * received in the last month and issues to the lab.
+ */
+function history(stockLots: StockLot[]): Movement[] {
+  const r = rng(26), out: Movement[] = [], staff = ['si', 'dj', 'lp'];
+  const now = Date.parse(T0);
+  const add = (m: Omit<Movement, '_id' | 'createdAt' | 'updatedAt' | 'status' | 'approvals' | 'requestedBy'> & Partial<Movement>, at: number) => {
+    if (at >= now - 1800000) return;
+    const who = staff[Math.floor(r() * staff.length)];
+    out.push({ status: 'done', approvals: [], requestedBy: who, assignee: who, ...m, _id: `MV-H-${String(out.length + 1).padStart(4, '0')}`,
+      createdAt: new Date(at - (1 + r() * 3) * 3600000).toISOString(), startedAt: new Date(at - r() * 1800000).toISOString(), updatedAt: new Date(at).toISOString() } as Movement);
+  };
+  const bins = stockLots.filter(l => (l.site === 'ktec' || l.site === 'isu') && /:[A-D]-\d\d-\d\d$/.test(l.locationId));
+  for (const l of bins) {
+    const base = { site: l.site, partNo: l.partNo, lotId: l._id };
+    const received = Date.parse(l.receivedAt), recent = now - received < 30 * 86400000;
+    if (recent) add({ ...base, type: 'putaway', qty: l.qty, from: `${l.site}:Inbound staging`, to: l.locationId, ref: `PO 45001${String(out.length).padStart(2, '0')}`, reason: 'Inbound · put-away' }, workTime(r, Math.max(1, Math.floor((now - received) / 86400000))));
+    const after = recent ? Math.ceil((now - received) / 86400000) - 1 : 29;
+    const picks = r() < .55 ? 1 + Math.floor(r() * 3) : 0;
+    for (let i = 0; i < picks && after > 0; i++) add({ ...base, type: 'pick', qty: 1 + Math.floor(r() * 4), from: l.locationId, reason: PICK_PURPOSE[Math.floor(r() * 4)] }, workTime(r, 1 + Math.floor(r() * after)));
+    if (!recent && r() < .14 && l.qty >= 3) {
+      const src = bins[Math.floor(r() * bins.length)];
+      if (src.site === l.site && src.locationId !== l.locationId)
+        add({ ...base, type: 'move', qty: Math.min(l.qty, 2 + Math.floor(r() * 6)), from: src.locationId, to: l.locationId, reason: 'Re-slot for faster picking',
+          approvals: [{ role: 'storeManager', user: 'mk', decision: 'approved', at: new Date(now - 30 * 86400000).toISOString() }] }, workTime(r, 1 + Math.floor(r() * 29)));
+    }
+    if (l.site === 'ktec' && r() < .05) add({ ...base, type: 'issue', qty: 1 + Math.floor(r() * 3), from: l.locationId, to: 'ktec:Lab L-03', reason: 'Issue to lab' }, workTime(r, 1 + Math.floor(r() * 29)));
+    if (l.site === 'ktec' && r() < .03) add({ ...base, type: 'move', qty: 1, from: l.locationId, to: 'ktec:Quarantine Q-01', reason: 'Damaged in handling · hold',
+      approvals: [{ role: 'storeManager', user: 'mk', decision: 'approved' }] }, workTime(r, 1 + Math.floor(r() * 29)));
+  }
+  return out;
+}
 
 /** Unit cost in ₹ per unit of measure. */
 const COST: Record<string, number> = {
@@ -31,11 +92,32 @@ const SITE_OF: Record<string, string> = { Chennai: 'ktec', Pune: 'pnq' };
 /** Areas named in the sample that are at the ISU factory rather than KTEC. */
 const AREA_SITE: Record<string, string> = { 'Test tower': 'isu', 'Scrap yard': 'isu', 'Heavy L0': 'isu' };
 
+/** Open work on the KTEC store floor for the task board: moves at each stage and an inbound put-away. */
+function liveTasks(stockLots: StockLot[]): Movement[] {
+  const free = stockLots.filter(l => l.site === 'ktec' && /:[A-D]-\d\d-\d\d$/.test(l.locationId) && l.qty >= 8 && !l.reserved && !/C-10-04|D-05-04/.test(l.locationId));
+  const [a, b, c, d, e, f, g] = [3, 11, 19, 27, 35, 43, 51].map(i => free[i % free.length]);
+  const mgr = { role: 'storeManager' as const, user: 'mk', decision: 'approved' as const, at: hours(-2) };
+  const mv = (id: string, lot: StockLot, to: StockLot, qty: number, at: number, extra: Partial<Movement>): Movement => ({
+    _id: id, site: 'ktec', type: 'move', partNo: lot.partNo, qty, lotId: lot._id, from: lot.locationId, to: to.locationId, reason: 'Re-slot for faster picking',
+    status: 'approved', requestedBy: 'mk', approvals: [mgr], createdAt: hours(at), updatedAt: hours(at), ...extra,
+  });
+  return [
+    mv('MR-26-1190', a, b, 4, -1.5, {}),
+    mv('MR-26-1191', c, d, 6, -2, { assignee: 'dj', startedAt: hours(-.4) }),
+    mv('MR-26-1192', e, f, 3, -3, { status: 'requested', requestedBy: 'si', approvals: [{ role: 'storeManager', decision: 'pending' }], reason: 'Consolidate part-full bins' }),
+    mv('MR-26-1193', g, a, 2, -6, { assignee: 'lp' }),
+    { _id: 'MR-26-1194', site: 'ktec', type: 'putaway', partNo: 'KM-SNS-LDR-077', qty: 12, from: 'ktec:Inbound staging', to: g.locationId, ref: 'ASN 7781', reason: 'Inbound · ASN 7781 · Blue Dart',
+      status: 'requested', requestedBy: 'mk', approvals: [], createdAt: hours(-1), updatedAt: hours(-1) },
+  ];
+}
+
 export function seed(): { [C in Coll]: Collections[C][] } {
   const users: User[] = [
     { _id: 'rv', name: 'R. Venkat', initials: 'RV', email: 'r.venkat@example.com', role: 'logistics', sites: ['ktec', 'isu', 'dhl', 'pnq'] },
     { _id: 'mk', name: 'M. Krishnan', initials: 'MK', email: 'm.krishnan@example.com', role: 'storeManager', sites: ['ktec', 'isu'] },
     { _id: 'si', name: 'S. Iyer', initials: 'SI', email: 's.iyer@example.com', role: 'clerk', sites: ['ktec'] },
+    { _id: 'dj', name: 'D. Joseph', initials: 'DJ', email: 'd.joseph@example.com', role: 'clerk', sites: ['ktec'] },
+    { _id: 'lp', name: 'L. Pillai', initials: 'LP', email: 'l.pillai@example.com', role: 'clerk', sites: ['ktec', 'isu'] },
     { _id: 'pr', name: 'P. Raman', initials: 'PR', email: 'p.raman@example.com', role: 'engineer', sites: ['ktec', 'isu'] },
     { _id: 'ak', name: 'A. Khan', initials: 'AK', email: 'a.khan@example.com', role: 'ehs', sites: ['ktec', 'isu', 'dhl', 'pnq'] },
     { _id: 'mr', name: 'M. Rao', initials: 'MR', email: 'm.rao@example.com', role: 'finance', sites: ['ktec', 'isu', 'dhl', 'pnq'] },
@@ -87,8 +169,11 @@ export function seed(): { [C in Coll]: Collections[C][] } {
     stamp({ _id: 'MR-26-1180', site: 'ktec', type: 'putaway', partNo: 'KM-DX-ACT-220', qty: 20, to: 'ktec:D-05-04', ref: 'PO 4500182', reason: 'Planned inbound · PO 4500182', due: days(3), status: 'requested', requestedBy: 'mk', approvals: [] }),
     stamp({ _id: 'MR-26-1181', site: 'ktec', type: 'count', partNo: 'KM-PCB-IOT-022', qty: 40, counted: 36, from: 'ktec:C-10-04', reason: 'Cycle count variance · recount today', status: 'requested', requestedBy: 'si', approvals: [{ role: 'storeManager', decision: 'pending' }] }),
     stamp({ _id: 'MR-26-1182', site: 'ktec', type: 'issue', partNo: 'KM-DX-ACT-220', qty: 4, from: 'ktec:D-05-04', to: 'ktec:Lab L-03', ref: 'DX Class 2027', reason: 'Issue to lab · 20 Oct', status: 'approved', requestedBy: 'pr', approvals: [{ role: 'storeManager', user: 'mk', decision: 'approved', at: days(0) }] }),
+    ...liveTasks(stockLots),
     stamp({ _id: 'MR-26-1183', site: 'isu', type: 'transfer', partNo: 'KM-MOT-PM-150', qty: 1, from: 'isu:Heavy L0', to: 'isu:Test tower', reason: 'Tower test · 2 drives', status: 'done', requestedBy: 'pr', approvals: [{ role: 'storeManager', user: 'mk', decision: 'approved', at: days(-1) }] }),
   ];
+
+  movements.push(...history(stockLots));
 
   const scrapCases: ScrapCase[] = [
     stamp({ _id: 'SC-2026-0418', site: 'isu', partNo: 'KM-SFT-BRK-090', qty: 6, value: 428000, reason: 'Destructive test · not reusable', detail: 'Consumed in test campaign TC-114 drop test', step: 'approval', photos: [], owner: 'pr', lotId: brakes._id,

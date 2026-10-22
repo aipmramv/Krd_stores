@@ -1,4 +1,4 @@
-export type ScreenId = 'network' | 'routes' | 'site' | 'store' | 'shipments' | 'movements' | 'reports' | 'mobile';
+export type ScreenId = 'network' | 'routes' | 'site' | 'store' | 'shipments' | 'movements' | 'reports' | 'mobile' | 'board';
 export type MapScreen = 'network' | 'routes' | 'shipments';
 export type ThreeScreen = 'site' | 'movements' | 'store';
 export type ColorMode = 'occupancy' | 'ageing' | 'project' | 'hazard' | 'activity' | 'value';

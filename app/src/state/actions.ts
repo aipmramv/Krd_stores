@@ -9,6 +9,7 @@ import * as moves from '../services/moves';
 import * as scrap from '../services/scrap';
 import * as ships from '../services/shipments';
 import * as stock from '../services/stock';
+import * as board from '../services/board';
 import { fitFor, freeQty, nearestFree, sumQty } from '../services/storeOps';
 import { getStoreView } from '../services/storeView';
 import { getState, MAP_SCREENS, setState, stageFor, THREE_SCREENS, USER_KEY, type AppState } from './store';
@@ -419,4 +420,24 @@ export function escape() {
   closeOverlay();
   if (s.moveDraft) cancelMove();
   else if (!s.overlay && s.screen === 'site' && s.floor !== null) { if (s.walk) toggleWalk(); else exitFloor(); }
+}
+
+// ---------- Live board ----------
+const DONE_MSG: Record<board.Lane, string> = { approval: '', todo: 'back to To do', doing: 'started', done: 'done · stock updated' };
+export async function boardMove(id: string, to: board.Lane) {
+  const from = await db.get('movements', id);
+  const m = await board.moveTo(id, to, getState().user).catch(fail);
+  if (!m) return;
+  toast(from && board.laneOf(from) === 'approval' ? `${id} ${m.status === 'done' ? 'posted' : 'approved'}` : `${id} ${DONE_MSG[to]}`);
+}
+export async function boardAssign(id: string, userId: string) {
+  const m = await board.assign(id, userId, getState().user).catch(fail);
+  if (m) toast(`${id} given to ${(await db.get('users', userId))?.name ?? userId}`);
+}
+/** Open a task's bin in the store twin with the beam on it. */
+export function findInStore(site: string, loc?: string) {
+  const b = binOf(loc);
+  if (!b) { toast(`${loc?.split(':')[1] ?? 'This place'} is not in the modelled store`); return; }
+  goTo(site, 'store', { bin: b, binTask: null, moveDraft: null, scrapNew: null });
+  flashBeam(binId(b));
 }

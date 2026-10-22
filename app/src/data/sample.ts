@@ -4,7 +4,7 @@ import type { ColorMode, LatLng, Part, PartStatus, RouteOption, ScreenId, Shipme
 
 export const MODULES: [ScreenId, string][] = [
   ['network', 'Network'], ['routes', 'Routes'], ['site', 'Site twin'], ['store', 'Store twin'],
-  ['shipments', 'Shipments'], ['movements', 'Moves & scrap'], ['reports', 'Reports & masters'], ['mobile', 'Mobile'],
+  ['shipments', 'Shipments'], ['movements', 'Moves & scrap'], ['board', 'Live board'], ['reports', 'Reports'], ['mobile', 'Mobile'],
 ];
 
 export { SITE_BY_ID, SITES } from './sites';
