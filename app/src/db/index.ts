@@ -20,10 +20,16 @@ const listeners = new Set<Listener>();
 export const onChange = (fn: Listener) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
 const changed = (c: Coll) => listeners.forEach(f => f(c));
 
-/** Short time-ordered id with a readable prefix, e.g. MR-26-K3F9Q2. */
+/**
+ * Short time-ordered id with a readable prefix, e.g. MR-26-K3F9Q2. A counter within the same
+ * millisecond keeps ids from one browser unique; the server answers 409 on a clash between users.
+ */
+let lastMs = 0, seq = 0;
 export function newId(prefix: string) {
-  const yy = String(new Date().getFullYear()).slice(2);
-  return `${prefix}-${yy}-${Date.now().toString(36).slice(-4).toUpperCase()}${Math.random().toString(36).slice(2, 4).toUpperCase()}`;
+  const yy = String(new Date().getFullYear()).slice(2), now = Date.now();
+  seq = now === lastMs ? seq + 1 : Math.floor(Math.random() * 600);
+  lastMs = now;
+  return `${prefix}-${yy}-${now.toString(36).slice(-4).toUpperCase()}${(seq % 1296).toString(36).padStart(2, '0').toUpperCase()}`;
 }
 
 async function audit(action: 'insert' | 'update' | 'remove', coll: Coll, docId: string, change?: Record<string, unknown>) {
