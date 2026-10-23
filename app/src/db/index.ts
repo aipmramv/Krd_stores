@@ -32,8 +32,11 @@ export function newId(prefix: string) {
   return `${prefix}-${yy}-${now.toString(36).slice(-4).toUpperCase()}${(seq % 1296).toString(36).padStart(2, '0').toUpperCase()}`;
 }
 
+/** Sensor events and tracker readings are their own log; auditing them would flood the audit log. */
+export const UNAUDITED: Coll[] = ['auditLog', 'events', 'trackers'];
+
 async function audit(action: 'insert' | 'update' | 'remove', coll: Coll, docId: string, change?: Record<string, unknown>) {
-  if (coll === 'auditLog') return;
+  if (UNAUDITED.includes(coll)) return;
   const at = new Date().toISOString();
   // On the server the audit entry is written by the API itself.
   if (adapter.kind === 'api') return;
@@ -43,8 +46,18 @@ async function audit(action: 'insert' | 'update' | 'remove', coll: Coll, docId: 
 
 export type NewDoc<C extends Coll> = Omit<Collections[C], '_id' | 'createdAt' | 'updatedAt'> & { _id?: string };
 
+adapter.subscribe?.(changed);
+
+/** Record that someone looked at (or unblurred) footage: viewing is audited even though it changes nothing. */
+export async function auditAccess(action: 'view' | 'unblur', coll: Coll, docId: string, change?: Record<string, unknown>) {
+  await adapter.insert('auditLog', { _id: newId('AU'), at: new Date().toISOString(), user: actor(), action, coll, docId, change });
+  changed('auditLog');
+}
+
 export const db = {
   get kind() { return adapter.kind; },
+  /** The server's ingest endpoint, when there is one. */
+  get ingest() { return adapter.ingest?.bind(adapter); },
   find<C extends Coll>(c: C, filter?: Filter, opts?: FindOpts) { return adapter.find(c, filter, opts); },
   get<C extends Coll>(c: C, id: string) { return adapter.get(c, id); },
   async insert<C extends Coll>(c: C, doc: NewDoc<C>, prefix = c.slice(0, 2).toUpperCase()) {

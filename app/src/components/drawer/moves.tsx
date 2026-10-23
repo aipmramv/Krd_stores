@@ -5,7 +5,7 @@ import { binId, binOf } from '../../data/storeModel';
 import { useDoc, useQuery } from '../../db/hooks';
 import { ROLE_LABEL, type Movement, type StockLot } from '../../db/schema';
 import { available, canCancel, canExecute, checkMove, nextApproval } from '../../services/moves';
-import { cancelMove, cancelMoveRequest, confirmMove, decideMove, setMoveArea, setMoveTarget, submitMove } from '../../state/actions';
+import { cancelMove, cancelMoveRequest, confirmMove, decideMove, openEventClip, setMoveArea, setMoveTarget, submitMove } from '../../state/actions';
 import { useApp } from '../../state/store';
 
 /** Used when the Movement purposes master has no active move purposes. */
@@ -107,7 +107,8 @@ export function MoveRow({ m }: { m: Movement }) {
         <span className="chip" style={{ color: col, boxShadow: `inset 0 0 0 1px ${col}` }}>{label}</span>
       </div>
       <small className="mvmeta">{m.reason} · by {who(m.requestedBy)}{pending ? ` · waiting for ${ROLE_LABEL[pending.role]}` : ''}
-        {m.approvals.filter(a => a.decision !== 'pending').map(a => ` · ${a.decision} by ${who(a.user)}`).join('')}</small>
+        {m.approvals.filter(a => a.decision !== 'pending').map(a => ` · ${a.decision} by ${who(a.user)}`).join('')}
+        {m.evidence?.length ? <> · <button className="link" onClick={() => void openEventClip(m.evidence![m.evidence!.length - 1])}>▶ Camera evidence</button></> : null}</small>
       {(next || canExecute(m, me) || canCancel(m, me)) && (
         <div className="mvact">
           {next && <button className="btn primary" onClick={() => void decideMove(m._id, 'approved')}>Approve</button>}

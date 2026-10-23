@@ -6,8 +6,9 @@ import * as THREE from 'three';
 import { LEGENDS } from '../data/sample';
 import { BAYS, binColor, binId, binOf, EXCEPTION_BIN, isReserved, LEVELS, rnd, ROWS } from '../data/storeModel';
 import type { Bin, ColorMode } from '../data/types';
-import type { Part, StockLot } from '../db/schema';
-import { accessPoint, pickOrder, route, type Fit, type P } from '../services/storeOps';
+import type { Camera, Part, StockLot } from '../db/schema';
+import { livePositions, type LivePos } from '../services/live';
+import { pickOrder, type Fit } from '../services/storeOps';
 import { getStoreView } from '../services/storeView';
 import { getState, isOn } from '../state/store';
 
@@ -29,9 +30,12 @@ export interface StoreScene {
   moveLine: THREE.Group;
   zones: THREE.Mesh[];
   ghosts: THREE.Group;
+  cams: THREE.Group;
 }
 
 let cached: StoreScene | null = null;
+/** Positions drawn in the last frame (the virtual CCTV detects people from these). */
+export let live: LivePos[] = [];
 /** While dragging: how each bin (and area) would take the dragged stock. */
 let fitMap: Map<string, Fit> | null = null;
 let hoverZone: string | null = null;
@@ -142,12 +146,9 @@ export function buildStore(): StoreScene {
   sc.add(path);
   let pathKey = '';
 
-  // Trolleys travelling the aisles for approved moves (in progress).
-  const trolleys = new THREE.Group();
-  sc.add(trolleys);
-  let trolleyKey = '';
+  // Trolleys (UWB tags) carry the work in progress; idle ones wait at inbound staging.
   const trolleyGeo = new THREE.BoxGeometry(1.1, .7, .8);
-  const tMat = { approved: new THREE.MeshStandardMaterial({ color: '#1450F5', emissive: '#1450F5', emissiveIntensity: .4 }), requested: new THREE.MeshStandardMaterial({ color: '#FFE141', emissive: '#FFE141', emissiveIntensity: .25 }) };
+  const tMat = { approved: new THREE.MeshStandardMaterial({ color: '#1450F5', emissive: '#1450F5', emissiveIntensity: .4 }), idle: new THREE.MeshStandardMaterial({ color: '#767A82', roughness: .7 }) };
 
   sc.userData.tick = (t: number) => {
     const s = getState();
@@ -196,45 +197,96 @@ export function buildStore(): StoreScene {
     const pk = s.pickPath ? sk : '';
     if (pk !== pathKey) { pathKey = pk; drawPath(path, s.pickPath ? s.storeSel : []); }
 
-    // Trolleys follow the aisles from source to destination, pausing at each end.
-    // Moves and put-aways someone started (task board) run their route; approved or requested ones wait at the source.
-    const posKnown = (loc?: string) => !!(binOf(loc) || areaPos(loc?.split(':').pop() ?? ''));
-    const moves = [...(view?.moves ?? []), ...(view?.putaways ?? []).filter(m => m.startedAt)].filter(m => posKnown(m.from) && posKnown(m.to));
-    const tk = moves.map(m => m._id + m.status + (m.startedAt ?? '')).join();
-    if (tk !== trolleyKey) {
-      trolleyKey = tk; trolleys.clear();
-      moves.forEach((m, i) => {
-        const pt = (loc: string): P => { const bn = binOf(loc); if (bn) return accessPoint(bn); const ap = areaPos(loc.split(':').pop()!)!; return [ap.x, ap.z]; };
-        const r = route(pt(m.from!), pt(m.to!));
-        const running = !!m.startedAt;
-        const mesh = new THREE.Mesh(trolleyGeo, running || m.status === 'approved' ? tMat.approved : tMat.requested);
-        mesh.castShadow = true;
-        mesh.userData = { pts: r.pts, len: r.len, off: i * .37, approved: running };
-        trolleys.add(mesh);
-      });
+    // People, trolleys and the forklift where their tags say (services/live.ts).
+    live = view ? livePositions(view.trackers, view.movements, Date.now() / 1000) : [];
+    const lk = live.map(p => p.id + (p.task ?? '')).join();
+    if (lk !== liveKey) {
+      liveKey = lk; actors.clear();
+      for (const p of live) {
+        const o = p.kind === 'badge' ? worker() : p.kind === 'forklift' ? forklift() : new THREE.Mesh(trolleyGeo, p.task ? tMat.approved : tMat.idle);
+        o.castShadow = true; o.userData.id = p.id;
+        actors.add(o);
+      }
     }
-    for (const o of trolleys.children) {
-      const { pts, len, off, approved } = o.userData as { pts: P[]; len: number; off: number; approved: boolean };
-      const phase = ((t * 3.2) / Math.max(8, len) + off) % 1.4;
-      const k = approved ? Math.min(1, Math.max(0, phase - .2)) : 0;
-      const [x, z] = along(pts, len * k);
-      o.position.set(x, .45, z);
+    actors.visible = isOn(s, 'store', 'tags');
+    for (const o of actors.children) {
+      const p = live.find(x => x.id === o.userData.id);
+      if (!p) continue;
+      const prev = o.position.clone();
+      o.position.set(p.x, p.kind === 'trolley' ? .45 : 0, p.z);
+      const dx = p.x - prev.x, dz = p.z - prev.z;
+      if (Math.hypot(dx, dz) > .01) o.rotation.y = Math.atan2(dx, dz);
+    }
+
+    // Cameras: the open one's view cone is bright.
+    cams.visible = isOn(s, 'store', 'cam');
+    const ck = (view?.cameras ?? []).map(c => c._id + c.status).join();
+    if (ck !== camKey) { camKey = ck; mkCameras(view?.cameras ?? []); }
+    const openCam = s.overlay?.kind === 'camera' ? s.overlay.id : null;
+    for (const g of cams.children) {
+      const on = g.userData.camera === openCam;
+      (g.userData.cone as THREE.Mesh).visible = on || !openCam;
+      ((g.userData.cone as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = on ? .16 : .05;
+      ((g.userData.lines as THREE.LineSegments).material as THREE.LineBasicMaterial).color.set(on ? '#FFE141' : '#7FA3FF');
     }
   };
 
-  cached = { sc, bins, idx, moveLine, zones, ghosts };
+  // ---- Cameras and people ----
+  const cams = new THREE.Group();
+  sc.add(cams);
+  let camKey = '';
+  const camBodyM = new THREE.MeshStandardMaterial({ color: '#2A2C31', roughness: .4, metalness: .5 });
+  const mkCameras = (list: Camera[]) => {
+    cams.clear();
+    for (const c of list) {
+      const g = new THREE.Group();
+      const pos = new THREE.Vector3(...c.pos), look = new THREE.Vector3(...c.look);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(.35, .3, .6), camBodyM);
+      const lens = new THREE.Mesh(new THREE.CylinderGeometry(.11, .11, .08, 16), new THREE.MeshBasicMaterial({ color: c.status === 'online' ? '#1B7F4E' : '#C8312B' }));
+      lens.rotation.x = Math.PI / 2; lens.position.z = .32;
+      const head = new THREE.Group(); head.add(body, lens);
+      head.position.copy(pos); head.lookAt(look);
+      body.userData.camera = c._id; lens.userData.camera = c._id;
+      // View cone: a pyramid to 9 m along the aim, matching the camera's field of view.
+      const dir = look.clone().sub(pos).normalize(), far = 9, hh = Math.tan(THREE.MathUtils.degToRad(c.fov / 2)) * far, hw = hh * 16 / 9;
+      const up = new THREE.Vector3(0, 1, 0), right = dir.clone().cross(up).normalize(), u = right.clone().cross(dir).normalize();
+      const ctr = pos.clone().add(dir.clone().multiplyScalar(far));
+      const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => ctr.clone().add(right.clone().multiplyScalar(a * hw)).add(u.clone().multiplyScalar(b * hh)));
+      const geo = new THREE.BufferGeometry().setFromPoints([pos, corners[0], corners[1], pos, corners[1], corners[2], pos, corners[2], corners[3], pos, corners[3], corners[0]]);
+      const cone = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#7FA3FF', transparent: true, opacity: .05, side: THREE.DoubleSide, depthWrite: false }));
+      const lines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(corners.flatMap((p, i) => [pos, p, p, corners[(i + 1) % 4]])), new THREE.LineBasicMaterial({ color: '#7FA3FF', transparent: true, opacity: .3 }));
+      cone.userData.camera = c._id;
+      g.add(head, cone, lines);
+      g.userData = { camera: c._id, cone, lines, head };
+      cams.add(g);
+    }
+  };
+  const actors = new THREE.Group();
+  sc.add(actors);
+  let liveKey = '';
+  const vestM = new THREE.MeshStandardMaterial({ color: '#2F6FD6', roughness: .8 }), skinM = new THREE.MeshStandardMaterial({ color: '#B98A6A', roughness: .8 }), legM = new THREE.MeshStandardMaterial({ color: '#2A2C31' });
+  const worker = () => {
+    const g = new THREE.Group();
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(.36, .85, .22), legM); legs.position.y = .43;
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(.24, .5, 4, 10), vestM); body.position.y = 1.2;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.16, 14, 10), skinM); head.position.y = 1.68;
+    g.add(legs, body, head);
+    return g;
+  };
+  const forklift = () => {
+    const g = new THREE.Group(), y = new THREE.MeshStandardMaterial({ color: '#E8B10C', roughness: .6 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.2, .9, 2), y); base.position.y = .55;
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(1, 2.4, .12), legM); mast.position.set(0, 1.4, 1.05);
+    const forks = new THREE.Mesh(new THREE.BoxGeometry(.9, .06, 1), legM); forks.position.set(0, .2, 1.6);
+    g.add(base, mast, forks);
+    return g;
+  };
+
+  cached = { sc, bins, idx, moveLine, zones, ghosts, cams };
   recolorBins();
   return cached;
 }
 
-function along(pts: P[], d: number): P {
-  for (let i = 1; i < pts.length; i++) {
-    const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], l = Math.hypot(x1 - x0, z1 - z0);
-    if (d <= l) return [x0 + (x1 - x0) * d / (l || 1), z0 + (z1 - z0) * d / (l || 1)];
-    d -= l;
-  }
-  return pts[pts.length - 1];
-}
 
 /** Pick path through the selected bins (walking order from storeOps), drawn on the floor. */
 export let pathStops: { code: string; pos: THREE.Vector3 }[] = [];
@@ -333,6 +385,11 @@ export function drawMoves(draft?: { from: Bin; to: Bin | null; toArea?: string }
 export function areaAt(ray: THREE.Raycaster): string | null {
   if (!cached) return null;
   return (ray.intersectObjects(cached.zones, false)[0]?.object.userData.area as string) ?? null;
+}
+/** The camera under a ray, if any. */
+export function cameraAt(ray: THREE.Raycaster): string | null {
+  if (!cached || !cached.cams.visible) return null;
+  return (ray.intersectObjects(cached.cams.children.map(g => g.userData.head as THREE.Object3D), true)[0]?.object.userData.camera as string) ?? null;
 }
 /** The put-away task of the inbound pallet under a ray, if any. */
 export function ghostAt(ray: THREE.Raycaster): string | null {

@@ -5,11 +5,15 @@
 //   PATCH  /api/:coll/:id   { "$set": { … } }                   update fields
 //   DELETE /api/:coll/:id                                       remove
 //   POST   /api/_reset                                          reseed (only with ALLOW_RESET=true)
+//   POST   /api/_ingest     a sensor event (camera, scanner, tag, sensor); runs the rules engine
+//   GET    /api/_stream     server-sent events: { coll } after every write, for live updates
 //   GET    /api/health
 // Every write is recorded in auditLog with the x-user header. Sign-in (Microsoft Entra ID) goes in
 // front of this when it is deployed for real users; see README.md.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Document, Filter as MFilter, Sort } from 'mongodb';
+import type { Alert, Camera, Movement, SensorEvent, Shipment, StockLot, User } from '../../app/src/db/schema.ts';
+import { evaluate } from '../../app/src/services/rules.ts';
 import { connect, ensureIndexes, env, isColl, reseed } from './store.ts';
 
 const db = await connect();
@@ -46,8 +50,17 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
 
 const parse = (s: string | null, fallback: unknown) => (s ? clean(JSON.parse(s)) : fallback);
 
+// Live updates: every connected browser hears which collection changed.
+const streams = new Set<ServerResponse>();
+const announce = (coll: string) => { for (const s of streams) s.write(`data: ${JSON.stringify({ coll })}\n\n`); };
+setInterval(() => { for (const s of streams) s.write(': keep-alive\n\n'); }, 25000).unref();
+
+const newId = (p: string) => `${p}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+/** Sensor events are their own log; auditing them (and tag readings) would flood the audit log. */
+const UNAUDITED = new Set(['auditLog', 'events', 'trackers']);
 async function audit(user: string, action: 'insert' | 'update' | 'remove', coll: string, docId: string, change?: unknown) {
-  if (coll === 'auditLog') return;
+  if (UNAUDITED.has(coll)) return;
   const at = new Date().toISOString();
   await db.collection('auditLog').insertOne({ _id: `AU-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, at, user, action, coll, docId, change } as Document);
 }
@@ -63,8 +76,18 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   if (coll === 'health') return json(res, 200, { ok: true, db: env.db });
   if (coll === '_reset' && req.method === 'POST') {
     if (!env.allowReset) return json(res, 403, { error: 'Reset is disabled' });
-    return json(res, 200, await reseed(db));
+    const out = await reseed(db);
+    announce('*');
+    return json(res, 200, out);
   }
+  if (coll === '_stream' && req.method === 'GET') {
+    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+    res.write(': connected\n\n');
+    streams.add(res);
+    req.on('close', () => streams.delete(res));
+    return;
+  }
+  if (coll === '_ingest' && req.method === 'POST') return json(res, 201, await ingest(clean(await body(req)) as SensorEvent, String(req.headers['x-user'] ?? 'device')));
   if (!coll || !isColl(coll)) return json(res, 404, { error: `Unknown collection ${coll}` });
   type Row = Document & { _id: string };
   const c = db.collection<Row>(coll);
@@ -89,6 +112,7 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     if (typeof doc._id !== 'string') return json(res, 400, { error: '_id (string) is required' });
     await c.insertOne(doc);
     await audit(user, 'insert', coll, doc._id, doc);
+    announce(coll);
     return json(res, 201, doc);
   }
   if (req.method === 'PATCH' && id) {
@@ -98,14 +122,47 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     const out = await c.findOneAndUpdate({ _id: id }, { $set }, { returnDocument: 'after' });
     if (!out) return json(res, 404, { error: 'Not found' });
     await audit(user, 'update', coll, id, $set);
+    announce(coll);
     return json(res, 200, out);
   }
   if (req.method === 'DELETE' && id) {
     await c.deleteOne({ _id: id });
     await audit(user, 'remove', coll, id);
+    announce(coll);
     return json(res, 204);
   }
   return json(res, 405, { error: 'Method not allowed' });
+}
+
+/**
+ * A device or edge box reports an event: the rules engine (shared with the app) decides what it
+ * means, using the records of the last hour around it, and the outcome is stored with it.
+ */
+async function ingest(input: SensorEvent, user: string): Promise<SensorEvent> {
+  if (!input?.site || !input.kind || !input.source) throw Object.assign(new Error('site, source and kind are required'), { status: 400 });
+  const ev: SensorEvent = { ...input, _id: typeof input._id === 'string' ? input._id : newId('EV'), at: input.at ?? new Date().toISOString() };
+  const since = new Date(Date.parse(ev.at) - 3600000).toISOString();
+  const col = <T,>(n: string) => db.collection<T & Document>(n);
+  const [movements, users, shipments, cameras, lots, events] = await Promise.all([
+    col<Movement>('movements').find({ site: ev.site }).toArray(), col<User>('users').find({}).toArray(),
+    col<Shipment>('shipments').find({ $or: [{ from: ev.site }, { to: ev.site }] }).toArray(), col<Camera>('cameras').find({ site: ev.site }).toArray(),
+    col<StockLot>('stockLots').find({ site: ev.site }).toArray(), col<SensorEvent>('events').find({ site: ev.site, at: { $gte: since } }).toArray(),
+  ]);
+  const o = evaluate(ev, { movements, users, shipments, cameras, lots, events } as unknown as Parameters<typeof evaluate>[1]);
+  Object.assign(ev, { outcome: o.outcome, note: o.note, matched: o.matched, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  if (o.alert) {
+    const a: Alert = { _id: newId('AL'), site: ev.site, ...o.alert, status: 'open', at: ev.at, eventId: ev._id, loc: ev.loc, createdAt: ev.createdAt, updatedAt: ev.createdAt };
+    await col<Alert>('alerts').insertOne(a as Alert & Document);
+    await audit(user, 'insert', 'alerts', a._id, a);
+    ev.alert = a._id;
+    if (ev.clip) ev.clip = { ...ev.clip, held: true };
+    announce('alerts');
+  }
+  const m = o.matched ? movements.find(x => x._id === o.matched) : undefined;
+  if (m) { await col<Movement>('movements').updateOne({ _id: m._id }, { $set: { evidence: [...(m.evidence ?? []), ev._id] } }); announce('movements'); }
+  await col<SensorEvent>('events').insertOne(ev as SensorEvent & Document);
+  announce('events');
+  return ev;
 }
 
 createServer((req, res) => {

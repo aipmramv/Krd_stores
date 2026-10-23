@@ -154,7 +154,7 @@ function History({ loc }: { loc: string }) {
           <i aria-hidden>{MARK[m.type] ?? '•'}</i>
           <span><b>{VERB[m.type]} · {m.qty} × {m.partNo}{d ? <em className={d > 0 ? 'in' : 'out'}>{d > 0 ? '+' : '−'}{Math.abs(d)}</em> : null}</b>
             <small>{m.from && m.from !== loc ? `from ${code(m.from)} · ` : ''}{m.to && m.to !== loc ? `to ${code(m.to)} · ` : ''}{m.reason ?? ''}{m.ref ? ` · ${m.ref}` : ''}</small>
-            <small>{who} · {when(m.updatedAt)} · {m.status}</small></span>
+            <small>{who} · {when(m.updatedAt)} · {m.status}{m.evidence?.length ? <> · <button className="link" onClick={() => void A.openEventClip(m.evidence![m.evidence!.length - 1])}>▶ Seen on camera</button></> : null}</small></span>
         </li>
       );
     })}</ol>

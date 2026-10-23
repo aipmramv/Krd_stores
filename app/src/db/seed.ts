@@ -4,6 +4,7 @@ import { PARTS, SHIPS } from '../data/sample';
 import { SITES } from '../data/sites';
 import { BAYS, binId, FEATURED_BIN, isReserved, LEVELS, partInBin, rnd, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
+import { sensors } from './seedSensors';
 import type { Alert, ApprovalRule, AreaTemplate, CostCentre, Purpose, Carrier, Coll, Collections, Location, Milestone, Movement, Part, ScrapCase, Shipment, StockLot, User, Zone } from './schema';
 
 /** Seed time: the start of the current hour, so dates in the demo stay relative to today. */
@@ -229,5 +230,7 @@ export function seed(): { [C in Coll]: Collections[C][] } {
     ['CC-LOG', 'Logistics', 'ktec', 'rv'], ['CC-ISU-TEST', 'ISU test tower', 'isu', 'pr'], ['CC-ISU-PROD', 'ISU production', 'isu', 'mk'],
   ].map(([code, name, site, owner]) => stamp({ _id: code, code, name, site, owner }));
 
-  return { users, parts, locations, stockLots, movements, scrapCases, shipments, carriers, approvalRules, alerts, auditLog: [], purposes, areaTemplates, costCentres };
+  const sense = sensors(T0, { users, movements, shipments, stockLots }, rng(7));
+  alerts.push(...sense.alerts);
+  return { users, parts, locations, stockLots, movements, scrapCases, shipments, carriers, approvalRules, alerts, auditLog: [], purposes, areaTemplates, costCentres, events: sense.events, cameras: sense.cameras, trackers: sense.trackers };
 }

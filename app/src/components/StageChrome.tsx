@@ -6,7 +6,7 @@ import { primary, SITE_BY_ID } from '../data/sites';
 import { binId } from '../data/storeModel';
 import type { ScreenId } from '../data/types';
 import {
-  cancelMove, exitFloor, setSelectMode, go, goLive, resetView, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, toggleRail, toggleTour, zoom,
+  cancelMove, exitFloor, openScanner, setSelectMode, go, goLive, resetView, setMode, setTime, setTimeOfDay, toggleDim, toggleLayer, togglePeel, toggleRail, toggleTour, zoom,
 } from '../state/actions';
 import { asOfDate } from '../services/timeline';
 import { isOn, setState, THREE_SCREENS, useApp } from '../state/store';
@@ -124,6 +124,7 @@ export function Controls({ hidden }: { hidden: boolean }) {
       <button className="t" onClick={resetView} aria-label="Reset view">Fit</button>
       <button className={`t${THREE_SCREENS.includes(screen) ? '' : ' hidden'}`} onClick={toggleDim}>{dim}</button>
       {screen === 'store' && <button className={`t${sel ? ' on' : ''}`} onClick={() => setSelectMode(!sel)} aria-pressed={sel} aria-label="Select bins">Select</button>}
+      {screen === 'store' && <button className="t" onClick={openScanner} aria-label="Scan a QR label">Scan</button>}
     </div>
   );
 }

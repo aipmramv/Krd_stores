@@ -16,7 +16,7 @@ export const LAYERS: Partial<Record<ScreenId, [string, string, number][]>> = {
   shipments: [['inb', 'Inbound', 1], ['outb', 'Outbound', 1], ['trail', 'Milestone trails', 1]],
   site: [['ctx', 'Neighbouring buildings', 1], ['img', 'OSM map ground', 1], ['trees', 'Trees', 1], ['veh', 'Vehicles', 1], ['photos', 'Photos', 1], ['lbl', 'Labels', 1], ['alerts3', 'Alerts', 1]],
   movements: [['flows', 'Internal moves', 1], ['scrapf', 'Scrap flows', 1], ['ctx', 'Neighbouring buildings', 1], ['trees', 'Trees', 1], ['veh', 'Vehicles', 1], ['lbl', 'Labels', 1]],
-  store: [['ghost', 'Planned inbound', 1], ['resv', 'Reservations', 1], ['exc', 'Exceptions', 1], ['lbl', 'Labels', 1]],
+  store: [['ghost', 'Planned inbound', 1], ['resv', 'Reservations', 1], ['exc', 'Exceptions', 1], ['cam', 'Cameras', 1], ['tags', 'Live tags · people and trolleys', 1], ['lbl', 'Labels', 1]],
 };
 
 export const LEGENDS: Record<ColorMode, [string, string][]> = {

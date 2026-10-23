@@ -12,6 +12,8 @@ export const BAY = 2.7, ROWZ = [-9, -3, 3, 9], X0 = -16.2;
 const ACCESS_Z = [-12, 0, 0, 12];
 const CROSS_X = [X0 - 2.3, X0 + BAYS * BAY + 2.3];
 export const ENTRANCE: P = [-17, 13.5];
+/** Floor areas of the store (centres, metres), matching three/store3d.ts. */
+export const AREA_XZ: Record<string, P> = { 'Quarantine Q-01': [19.5, -9], 'Hazmat H-01': [19.5, 4], 'Inbound staging': [-1.5, 13.5] };
 export type P = [number, number];
 
 export const binX = (b: Bin) => X0 + b.i * BAY + BAY / 2;

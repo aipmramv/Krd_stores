@@ -8,13 +8,13 @@ import { binId, binOf, ROWS } from '../data/storeModel';
 import type { Bin } from '../data/types';
 import { HANDOFF_ZOOM, metresPerPixel, stageSafeArea, type Rect } from '../safeArea';
 import type { Part } from '../db/schema';
-import { binAction, cancelMove, enterFloor, go, groupMove, live, openPhoto, putAwayAt, selectBin, selectBuilding, setBinTask, setMoveArea, setMoveTarget, startMove, toast, toggleSel } from '../state/actions';
+import { binAction, cancelMove, openCamera, openEventClip, enterFloor, go, groupMove, live, openPhoto, putAwayAt, selectBin, selectBuilding, setBinTask, setMoveArea, setMoveTarget, startMove, toast, toggleSel } from '../state/actions';
 import { fitFor, freeQty, pickOrder, sumQty, type FitResult } from '../services/storeOps';
 import { getStoreView, loadStoreView, onStoreView } from '../services/storeView';
 import { getState, isOn, setState, subscribe, THREE_SCREENS } from '../state/store';
 import { Labels } from './labels';
 import { buildSite, setHovered, siteCached, type SiteScene } from './site';
-import { areaAt, areaPos, binPos, buildStore, drawMoves, ghostAt, recolorBins, ROWZ, setDragPreview, X0 } from './store3d';
+import { areaAt, areaPos, binPos, buildStore, cameraAt, drawMoves, ghostAt, live as livePos, recolorBins, ROWZ, setDragPreview, X0 } from './store3d';
 
 const RADIAL = ['Move', 'Reserve', 'Count', 'Scrap', 'History', 'Docs'];
 const H = () => document.documentElement;
@@ -353,6 +353,8 @@ class ThreeEngine {
     const s = getState();
     if (s.screen === 'store') {
       this.ray.setFromCamera(this.ndc(e), this.cam);
+      const camId = s.moveDraft ? null : cameraAt(this.ray);
+      if (camId) { openCamera(camId); return; }
       const st = buildStore(), hit = this.ray.intersectObject(st.bins)[0];
       if (hit && hit.instanceId !== undefined) {
         const b = st.idx[hit.instanceId];
@@ -534,13 +536,30 @@ class ThreeEngine {
       order.forEach((b, i) => L.add(binPos(b).add(new THREE.Vector3(0, 1, 0)), `<b>${i + 1}</b>`, { cls: 'stop', tag: 'span', pri: 6 }));
       L.add(new THREE.Vector3(-17, .2, 13.5), `<b>Pick path · ${order.length} stops</b><span>${Math.round(len)} m walk from the entrance</span>`, { tag: 'span', pri: 6 });
     }
+    // Live tags: trolleys carrying work and the people with them.
+    const tag = (id: string) => () => { const p = livePos.find(x => x.id === id); return new THREE.Vector3(p?.x ?? 0, p ? (p.kind === 'badge' ? 2.15 : 1.4) : -50, p?.z ?? 0); };
+    for (const tr of view?.trackers ?? []) {
+      if (tr.kind === 'asset') continue;
+      const short = tr.label.replace(/^(Badge · |Trolley |Forklift )/, '');
+      L.add(tag(tr._id), `<b>${short}</b>`, { cls: `flow tag ${tr.kind}`, tag: 'span', show: () => isOn(getState(), 'store', 'tags') && !!livePos.find(x => x.id === tr._id && (tr.kind !== 'trolley' || x.task)), pri: 2 });
+    }
+    // Exception cards step aside while bins are being selected or a move is drawn, so they never cover a bin you need.
+    const cards = () => { const st = getState(); return isOn(st, 'store', 'exc') && !st.selectMode && !st.moveDraft; };
+    // Camera detections the rules engine raised and nobody has closed: tap for the clip.
+    const cctv = [...(view?.alerts ?? [])].sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || b.at.localeCompare(a.at));
+    for (const a of cctv.slice(0, 2)) {
+      const b = binOf(a.loc), at = b ? binPos(b).add(new THREE.Vector3(0, .8, 0)) : areaPos(a.loc?.split(':').pop() ?? '');
+      if (!at || !a.eventId) continue;
+      L.add(at, `<div class="e">CCTV · ${a.status === 'ack' ? 'ACKNOWLEDGED' : 'OPEN'}</div><b style="font-size:.875rem">${a.title}</b><span>${a.detail}</span><span class="cl">▶ Watch the clip</span>`,
+        { cls: `card bad cctv`, tag: 'button', show: cards, dx: -20, ax: 1, pri: 4, onClick: () => openEventClip(a.eventId!) });
+    }
     for (const m of (view?.counts ?? []).slice(0, 2)) {
       const b = binOf(m.from);
       if (!b) continue;
       const part = view!.parts.get(m.partNo), d = (m.counted ?? 0) - m.qty;
       L.add(binPos(b).add(new THREE.Vector3(0, .8, 0)),
         `<div class="e">${binId(b)} · COUNT VARIANCE</div><b style="font-size:.875rem">${part?.description ?? m.partNo}</b><span>System ${m.qty} · counted ${m.counted} · ${d > 0 ? '+' : ''}${d}</span><span>Waiting for the store manager · ${m._id}</span>`,
-        { cls: 'card bad', tag: 'div', show: () => isOn(getState(), 'store', 'exc'), dx: 20, ax: 0, pri: 5 });
+        { cls: 'card bad', tag: 'div', show: cards, dx: 20, ax: 0, pri: 5 });
     }
   }
 

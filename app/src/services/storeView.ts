@@ -2,7 +2,7 @@
 // parts they hold and the open move requests. Reloaded whenever that data changes, and re-derived
 // when the timeline moves (replay or forecast), so the store shows stock as of that date.
 import { db, onChange } from '../db';
-import type { Location, Movement, Part, Shipment, StockLot } from '../db/schema';
+import type { Alert, Camera, Location, Movement, Part, Shipment, StockLot, Tracker } from '../db/schema';
 import { getState, subscribe } from '../state/store';
 import { isOpen } from './moves';
 import { asOfDate, stockAsOf } from './timeline';
@@ -26,9 +26,11 @@ export interface StoreView {
   areas: Map<string, Location>;
   /** All movements of the site (task board, bin timelines, flows). */
   movements: Movement[];
+  /** Cameras and tracker tags in this store, and open alerts raised by the rules engine. */
+  cameras: Camera[]; trackers: Tracker[]; alerts: Alert[];
 }
 
-interface Raw { site: string; lots: StockLot[]; movements: Movement[]; shipments: Shipment[]; locs: Location[]; parts: Part[] }
+interface Raw { site: string; lots: StockLot[]; movements: Movement[]; shipments: Shipment[]; locs: Location[]; parts: Part[]; cameras: Camera[]; trackers: Tracker[]; alerts: Alert[] }
 let raw: Raw | null = null;
 let view: StoreView | null = null;
 let req = 0;
@@ -57,6 +59,7 @@ function derive(r: Raw, t: number): StoreView {
     moves: open('move', ['requested', 'approved']).filter(isOpen), counts: open('count', ['requested']),
     putaways: open('putaway', ['requested']).sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '')), t,
     activity: activityOf(r.movements), areas: new Map(r.locs.filter(l => l.store !== 'electronics').map(l => [l.code, l])), movements: r.movements,
+    cameras: r.cameras, trackers: r.trackers, alerts: r.alerts,
   };
 }
 
@@ -64,19 +67,22 @@ function derive(r: Raw, t: number): StoreView {
 export async function loadStoreView(site: string, force = false): Promise<StoreView> {
   if (view?.site === site && !force) return view;
   const n = ++req;
-  const [locs, lots, parts, movements, shipments] = await Promise.all([
+  const [locs, lots, parts, movements, shipments, cameras, trackers, alerts] = await Promise.all([
     db.find('locations', { site }), db.find('stockLots', { site }), db.find('parts'),
     db.find('movements', { site }), db.find('shipments', { $or: [{ from: site }, { to: site }] }),
+    db.find('cameras', { site }), raw?.site === site ? Promise.resolve(raw.trackers) : db.find('trackers', { site }),
+    db.find('alerts', { site, status: { $in: ['open', 'ack'] }, eventId: { $exists: true } }, { sort: { at: -1 } }),
   ]);
   if (n !== req) return view!;
-  raw = { site, lots, movements, shipments, locs, parts };
+  raw = { site, lots, movements, shipments, locs, parts, cameras, trackers, alerts };
   view = derive(raw, getState().t);
   subs.forEach(f => f(view!));
   return view;
 }
 
 onChange(c => {
-  if (view && ['stockLots', 'movements', 'parts', 'locations', 'shipments'].includes(c)) void loadStoreView(view.site, true);
+  // Tracker readings are not reloaded: positions come from services/live.ts.
+  if (view && ['stockLots', 'movements', 'parts', 'locations', 'shipments', 'cameras', 'alerts'].includes(c)) void loadStoreView(view.site, true);
 });
 
 // Moving the timeline re-derives the stock without reloading.

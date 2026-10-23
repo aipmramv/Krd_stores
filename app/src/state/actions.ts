@@ -12,7 +12,7 @@ import * as stock from '../services/stock';
 import * as board from '../services/board';
 import { fitFor, freeQty, nearestFree, sumQty } from '../services/storeOps';
 import { getStoreView } from '../services/storeView';
-import { getState, MAP_SCREENS, setState, stageFor, THREE_SCREENS, USER_KEY, type AppState } from './store';
+import { getState, MAP_SCREENS, setState, stageFor, subscribe, THREE_SCREENS, USER_KEY, type AppState } from './store';
 
 const isMap = (s: ScreenId) => MAP_SCREENS.includes(s);
 const isSiteScreen = (s: ScreenId) => s === 'site' || s === 'movements';
@@ -440,4 +440,35 @@ export function findInStore(site: string, loc?: string) {
   if (!b) { toast(`${loc?.split(':')[1] ?? 'This place'} is not in the modelled store`); return; }
   goTo(site, 'store', { bin: b, binTask: null, moveDraft: null, scrapNew: null });
   flashBeam(binId(b));
+}
+
+// ---------- Cameras, events and scans ----------
+export const openCamera = (id: string) => setState({ overlay: { kind: 'camera', id } });
+/** Open the clip of a sensor event in the camera viewer. */
+export async function openEventClip(eventId: string) {
+  const ev = await db.get('events', eventId);
+  if (!ev?.camera) { toast('No camera saw this event'); return; }
+  if (!ev.clip) { toast('The clip was deleted after the 30-day retention period'); return; }
+  setState({ overlay: { kind: 'camera', id: ev.camera, eventId } });
+}
+export const openScanner = () => setState({ overlay: { kind: 'scan' } });
+
+/**
+ * Demo devices: start the simulator for a site with cameras (KTEC or ISU) and follow the site in
+ * view. Off with ?sim=off, and never when the app runs against a real server.
+ */
+const SENSOR_SITES = ['ktec', 'isu'];
+export function initSensors() {
+  if (db.kind !== 'demo' || new URLSearchParams(location.search).get('sim') === 'off') return;
+  void import('../services/simulator').then(sim => {
+    const site = () => (SENSOR_SITES.includes(getState().site) ? getState().site : 'ktec');
+    sim.startSim(site());
+    let last = site();
+    subscribe(() => { const s = site(); if (s !== last) { last = s; sim.setSimSite(s); } });
+    // A new alert from the devices: say so, with the clip to hand.
+    sim.onSimEvent(ev => {
+      if (ev.outcome !== 'alert' || getState().overlay) return;
+      toast(`${SITE_BY_ID[ev.site]?.short ?? ev.site} · ${ev.note}`, ev.clip ? { label: 'Watch clip', run: () => void openEventClip(ev._id) } : undefined);
+    });
+  });
 }

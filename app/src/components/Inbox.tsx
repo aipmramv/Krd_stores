@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { SITE_BY_ID } from '../data/sites';
 import { useDoc, useQuery } from '../db/hooks';
 import { tasksFor } from '../services/inbox';
-import { goTo, openTask, setAlertStatus } from '../state/actions';
+import { goTo, openEventClip, openTask, setAlertStatus } from '../state/actions';
 import { useApp } from '../state/store';
 
 export function useInbox() {
@@ -41,7 +41,7 @@ export function AlertsPanel({ top, right }: { top: number; right: number }) {
           <span className="dot" style={{ background: SEV[a.severity] }} />
           <span><b>{a.title}</b><small>{SITE_BY_ID[a.site]?.short} · {a.detail}{a.status === 'ack' ? ' · acknowledged' : ''}</small>
             <span className="acts">
-              <button className="btn" onClick={() => goTo(a.site, 'site')}>View site</button>
+              {a.eventId ? <button className="btn" onClick={() => void openEventClip(a.eventId!)}>▶ Clip</button> : <button className="btn" onClick={() => goTo(a.site, 'site')}>View site</button>}
               {a.status === 'open' && <button className="btn" onClick={() => void setAlertStatus(a._id, 'ack')}>Acknowledge</button>}
               <button className="btn" onClick={() => void setAlertStatus(a._id, 'closed')}>Close</button>
             </span>

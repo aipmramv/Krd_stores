@@ -55,14 +55,44 @@ The code uses only standard MongoDB driver calls, so it runs on both Cosmos DB o
 | `POST /api/:coll` | Insert; `_id` (string) required; 409 if it exists |
 | `PATCH /api/:coll/:id` | Body `{ "$set": { … } }` |
 | `DELETE /api/:coll/:id` | |
+| `POST /api/_ingest` | A sensor event from a camera edge box, scanner, tag gateway or sensor; runs the rules engine and stores the outcome (see below) |
+| `GET /api/_stream` | Server-sent events: `{ "coll": "…" }` after every write, so open browsers update live |
 | `GET /api/health` | |
 
 Collections: `users`, `parts`, `locations`, `stockLots`, `movements`, `scrapCases`, `shipments`,
-`carriers`, `approvalRules`, `alerts`, `auditLog`, `purposes`, `areaTemplates`, `costCentres`. The document shapes are in
+`carriers`, `approvalRules`, `alerts`, `auditLog`, `purposes`, `areaTemplates`, `costCentres`,
+`events`, `cameras`, `trackers`. The document shapes are in
 `app/src/db/schema.ts`, and the server and the app share them.
 
-Every write adds an `auditLog` entry with the `x-user` header. `$where`, `$function`,
+Every write adds an `auditLog` entry with the `x-user` header, except sensor `events` and tracker
+readings, which are their own log. Opening camera footage and unblurring faces are audited by the app
+(`action: "view"` / `"unblur"`). `$where`, `$function`,
 `$accumulator` and `$expr` are rejected in filters.
+
+## Sensor events (cameras, scanners, tags)
+
+Devices post events to `POST /api/_ingest`, for example from a camera edge box running the video
+analytics:
+
+```json
+{ "site": "ktec", "at": "2026-10-23T05:12:09Z", "source": "cctv", "kind": "bin_take",
+  "camera": "ktec:CAM-03", "loc": "ktec:C-02-01", "qty": 2, "conf": 0.91,
+  "clip": { "camera": "ktec:CAM-03", "from": "2026-10-23T05:11:59Z", "to": "2026-10-23T05:12:24Z" } }
+```
+
+The rules engine (`app/src/services/rules.ts`, shared with the app) checks it against the records
+around it and stores the event with its outcome:
+
+- `matched`: it confirms a movement or shipment (added to the movement's `evidence`)
+- `alert`: an alert is raised with the event and its clip (held as evidence)
+- `logged` or `ignored`
+
+Kinds: `bin_take`, `bin_put`, `zone_entry`, `motion`, `no_esd_coat`, `forklift_speed`,
+`aisle_blocked`, `smoke`, `vehicle_arrived`, `boxes_counted`, `scan`, `tag_exit`, `temperature`.
+
+Clips are kept 30 days unless held. Live video goes from the edge box to the browser over WebRTC
+(MediaMTX or go2rtc) and does not pass through this API. The public demo renders virtual cameras
+from the 3D twin instead, and simulates the events.
 
 ## Before real users
 

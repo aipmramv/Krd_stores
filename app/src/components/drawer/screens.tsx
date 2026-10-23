@@ -6,10 +6,11 @@ import { loadPhotos } from '../../services/photos';
 import { binId, rnd } from '../../data/storeModel';
 import { useDoc, useQuery } from '../../db/hooks';
 import { SelectionPanel } from '../StoreTools';
+import { camerasSeeing, pointOf } from '../../services/cameras';
 import { MoveForm, MoveList } from './moves';
 import { ScrapCaseView, ScrapList, ScrapNew } from './scrap';
 import { BinTaskPanel } from './storeTasks';
-import { binAction, enterFloor, exitFloor, focusBuilding, go, newScrap, openPhoto, selectSite, setBinTask, startMove, toast, toggleWalk } from '../../state/actions';
+import { binAction, enterFloor, exitFloor, focusBuilding, go, newScrap, openPhoto, selectSite, setBinTask, startMove, toast, toggleWalk, openCamera } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { DrawerFrame } from './Frame';
 
@@ -198,6 +199,7 @@ export function StoreDrawer() {
   const location = useDoc('locations', loc).data;
   const inbound = useQuery('movements', { to: loc, status: { $in: ['requested', 'approved'] } }).data;
   const last = useQuery('movements', { $or: [{ from: loc }, { to: loc }], status: 'done' }, { sort: { updatedAt: -1 }, limit: 1 }).data[0];
+  const cams = useQuery('cameras', { site }).data, at = pointOf(loc), watching = at ? camerasSeeing(at, cams).slice(0, 2) : [];
   if (scrapNew) return <ScrapNew />;
   if (draft) return <DrawerFrame title="Move request"><MoveForm /></DrawerFrame>;
   if (sel.length && !task) return <DrawerFrame title="Selection"><SelectionPanel /></DrawerFrame>;
@@ -229,6 +231,7 @@ export function StoreDrawer() {
       <div className="kv">
         <div><span>Last movement</span><span>{last ? `${last.type} · ${last.qty} · ${new Date(last.updatedAt ?? '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'None recorded'}</span></div>
         <div><span>Next event</span><span>{inbound[0] ? `${inbound[0]._id} · ${inbound[0].reason ?? inbound[0].type}` : 'None planned'}</span></div>
+        <div><span>Cameras on this bin</span><span className="camlinks">{watching.length ? watching.map(c => <button key={c._id} className="link" onClick={() => openCamera(c._id)}>▶ {c.code}</button>) : 'None'}</span></div>
         <div style={{ flexDirection: 'column', gap: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Volume used</span><span style={{ color: '#141414' }}>{occ}% of {cap}</span></div>
           <div className="bar6"><i style={{ width: `${occ}%` }} /></div>

@@ -3,7 +3,7 @@
 //   GitHub Pages so every action works without a server
 // - api:  the Node server in /server, which stores them in MongoDB or Azure Cosmos DB (MongoDB API)
 import { applyOpts, matches, type Filter, type FindOpts } from './filter';
-import { COLLECTIONS, type Coll, type Collections } from './schema';
+import { COLLECTIONS, type Coll, type Collections, type SensorEvent } from './schema';
 
 export interface Adapter {
   readonly kind: 'demo' | 'api';
@@ -14,11 +14,15 @@ export interface Adapter {
   remove(c: Coll, id: string): Promise<void>;
   /** Back to the seed data. */
   reset(): Promise<void>;
+  /** Changes made elsewhere (other users, devices), pushed as they happen. */
+  subscribe?(fn: (c: Coll) => void): void;
+  /** Hand a sensor event to the server's rules engine. */
+  ingest?(event: SensorEvent): Promise<SensorEvent>;
 }
 
 // ---------- demo: in this browser ----------
 /** Bump when the seed or the document shapes change, so old demo data is replaced. */
-export const DEMO_VERSION = 7;
+export const DEMO_VERSION = 8;
 const KEY = (c: Coll) => `ktec-twin:v${DEMO_VERSION}:${c}`;
 
 function storage(): Storage | null {
@@ -130,4 +134,16 @@ export class ApiAdapter implements Adapter {
   }
   async remove(c: Coll, id: string) { await this.call(`${c}/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
   async reset() { await this.call('_reset', { method: 'POST' }); }
+  /** Server-sent events: the API announces every write as { coll }. Reconnects on its own. */
+  subscribe(fn: (c: Coll) => void) {
+    if (typeof EventSource === 'undefined') return;
+    const es = new EventSource(`${this.base}/api/_stream`);
+    es.onmessage = e => {
+      try {
+        const { coll } = JSON.parse(e.data) as { coll: Coll | '*' };
+        if (coll === '*') COLLECTIONS.forEach(fn); else if (COLLECTIONS.includes(coll)) fn(coll);
+      } catch { /* keep-alive */ }
+    };
+  }
+  ingest(event: SensorEvent) { return this.call<SensorEvent>('_ingest', { method: 'POST', body: JSON.stringify(event) }); }
 }

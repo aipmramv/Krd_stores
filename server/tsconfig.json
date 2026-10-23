@@ -10,5 +10,5 @@
     "types": ["node"],
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src", "../app/src/db/schema.ts", "../app/src/db/seed.ts", "../app/src/db/filter.ts"]
+  "include": ["src", "../app/src/db/schema.ts", "../app/src/db/seed.ts", "../app/src/db/filter.ts", "../app/src/services/rules.ts"]
 }

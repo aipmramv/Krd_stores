@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { binOf } from '../data/storeModel';
 import { searchAll, type Hit, type Target } from '../services/search';
 import { AlertsPanel } from './Inbox';
+import { CameraView } from './cctv/CameraView';
+import { Scanner } from './cctv/Scanner';
 import { SITE_BY_ID } from '../data/sites';
 import type { ScreenId } from '../data/types';
 import { db } from '../db';
@@ -137,9 +139,10 @@ export function Overlay() {
   const o = useApp(s => s.overlay);
   if (!o) return null;
   return (
-    <div className={`overlay${o.kind === 'photo' ? ' dark' : ''}`} style={o.kind === 'display' || o.kind === 'user' || o.kind === 'alerts' ? { background: 'transparent' } : undefined}
+    <div className={`overlay${o.kind === 'photo' || o.kind === 'camera' ? ' dark' : ''}`} style={o.kind === 'display' || o.kind === 'user' || o.kind === 'alerts' ? { background: 'transparent' } : undefined}
       onClick={e => { if (e.target === e.currentTarget) closeOverlay(); }}>
-      {o.kind === 'palette' ? <Palette q={o.q} /> : o.kind === 'display' ? <DisplayMenu top={o.top} right={o.right} /> : o.kind === 'user' ? <UserMenu top={o.top} right={o.right} /> : o.kind === 'alerts' ? <AlertsPanel top={o.top} right={o.right} /> : <PhotoViewer site={o.site} i={o.i} />}
+      {o.kind === 'palette' ? <Palette q={o.q} /> : o.kind === 'display' ? <DisplayMenu top={o.top} right={o.right} /> : o.kind === 'user' ? <UserMenu top={o.top} right={o.right} /> : o.kind === 'alerts' ? <AlertsPanel top={o.top} right={o.right} />
+        : o.kind === 'camera' ? <CameraView key={o.id + (o.eventId ?? '')} id={o.id} eventId={o.eventId} /> : o.kind === 'scan' ? <Scanner /> : <PhotoViewer site={o.site} i={o.i} />}
     </div>
   );
 }

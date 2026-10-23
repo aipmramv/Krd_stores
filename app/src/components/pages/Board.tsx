@@ -10,6 +10,8 @@ import { busyHours, cycleMinutes, daysAgo, flows } from '../../services/flow';
 import { boardAssign, boardMove, findInStore, goTo } from '../../state/actions';
 import { useApp } from '../../state/store';
 import { BusyHours, Sankey } from './FlowCharts';
+import { LiveEvents } from '../cctv/EventFeed';
+import { setState } from '../../state/store';
 
 const KIND: Partial<Record<Movement['type'], string>> = { move: 'Move', putaway: 'Put-away', count: 'Count', issue: 'Issue', transfer: 'Transfer' };
 const NEXT: Record<Lane, [Lane, string] | null> = { approval: ['todo', 'Approve'], todo: ['doing', 'Start'], doing: ['done', 'Done'], done: null };
@@ -95,6 +97,8 @@ export function Board({ hidden }: { hidden: boolean }) {
   const site = useApp(s => s.site), meId = useApp(s => s.user), me = useDoc('users', meId).data ?? null;
   const all = useQuery('movements', { site }).data, users = useQuery('users').data, parts = useQuery('parts').data;
   const [now, setNow] = useState(Date.now()), [range, setRange] = useState(30);
+  const tab = useApp(s => s.boardTab);
+  const alertsOpen = useQuery('alerts', { site, status: 'open', eventId: { $exists: true } }).data.length;
   useEffect(() => { if (hidden) return; const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, [hidden]);
   const who = (id?: string | null) => users.find(u => u._id === id) ?? null;
   const team = users.filter(u => STAFF.includes(u.role) && u.sites.includes(site));
@@ -156,10 +160,18 @@ export function Board({ hidden }: { hidden: boolean }) {
       <div className="board">
         <div className="rep-hd">
           <div><span className="eb">Live board · store floor</span><h1>{SITE_BY_ID[site].name}</h1>
-            <p className="sub">Drag a card to approve, start or finish it, or onto a person to give it to them. On touch screens, press and hold first.</p></div>
+            <p className="sub">{tab === 'tasks' ? 'Drag a card to approve, start or finish it, or onto a person to give it to them. On touch screens, press and hold first.' : tab === 'events' ? 'Cameras, scanners, tags and sensors, checked against the records as events arrive.' : 'Finished movements between racks and areas.'}</p></div>
           <div className="acts">{BOARD_SITES.map(id => <button key={id} className={`btn${site === id ? ' on' : ''}`} onClick={() => goTo(id, 'board')}>{SITE_BY_ID[id].short}</button>)}</div>
         </div>
 
+        <div className="seg btabs" role="tablist">
+          {([['tasks', 'Tasks'], ['events', 'Live events and cameras'], ['flow', 'Material flow']] as const).map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setState({ boardTab: k })}>{l}{k === 'events' && alertsOpen ? <span className="badge">{alertsOpen}</span> : null}</button>
+          ))}
+        </div>
+
+        {tab === 'events' && <LiveEvents site={site} />}
+        {tab === 'tasks' && <>
         <div className="kpis k4 bk">
           <div><span>Open tasks</span><b>{open}</b></div>
           <div><span>Past SLA</span><b className={late ? 'bad' : ''}>{late}</b></div>
@@ -189,8 +201,10 @@ export function Board({ hidden }: { hidden: boolean }) {
             );
           })}
         </div>
+        </>}
 
-        <div className="rep-hd" style={{ marginTop: '1rem' }}>
+        {tab === 'flow' && <>
+        <div className="rep-hd">
           <div><span className="eb">Material flow</span><h2 style={{ margin: 0 }}>Where stock went and when</h2></div>
           <div className="seg">{[7, 30].map(d => <button key={d} className={range === d ? 'on' : ''} onClick={() => setRange(d)}>Last {d} days</button>)}</div>
         </div>
@@ -198,6 +212,7 @@ export function Board({ hidden }: { hidden: boolean }) {
           <div className="cpanel"><div className="ch"><b>Flow between racks and areas</b><small>Units in finished movements · ribbon width is units</small></div><Sankey flows={fl} /></div>
           <div className="cpanel"><div className="ch"><b>Busy hours</b><small>Finished movements by weekday and hour, IST</small></div><BusyHours grid={grid} /></div>
         </div>
+        </>}
       </div>
       {drag && dragged && (
         <div ref={ghost} className={`bghost${drag.target ? (drag.err ? ' no' : ' ok') : ''}`} aria-live="polite">
